@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Sparkles,
   Shield,
+  Wand2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -30,7 +31,8 @@ const navigation = [
   { name: 'Documents', href: '/dashboard/documents', icon: FileText, description: 'Upload & Manage' },
   { name: 'Findings', href: '/dashboard/findings', icon: AlertTriangle, description: 'Compliance Issues' },
   { name: 'NDIS Standards', href: '/dashboard/ndis', icon: Shield, description: 'Practice Standards' },
-  { name: 'AI Analysis', href: '/dashboard/analysis', icon: Sparkles, description: 'AI-Powered Insights' },
+  { name: 'AI Analysis', href: '/dashboard/analysis', icon: Sparkles, description: 'Analyze Documents' },
+  { name: 'Policy Generator', href: '/dashboard/generator', icon: Wand2, description: 'Generate Policies' },
 ]
 
 const bottomNav = [
