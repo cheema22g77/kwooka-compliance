@@ -1,6 +1,3 @@
-// Database types for Supabase
-// Generate these types using: npx supabase gen types typescript --project-id your-project-id > src/types/database.ts
-
 export type Json =
   | string
   | number
@@ -15,31 +12,28 @@ export interface Database {
       profiles: {
         Row: {
           id: string
-          email: string
+          email: string | null
           full_name: string | null
-          company_name: string | null
-          role: 'admin' | 'manager' | 'user'
           avatar_url: string | null
+          company_name: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id: string
-          email: string
+          email?: string | null
           full_name?: string | null
-          company_name?: string | null
-          role?: 'admin' | 'manager' | 'user'
           avatar_url?: string | null
+          company_name?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          email?: string
+          email?: string | null
           full_name?: string | null
-          company_name?: string | null
-          role?: 'admin' | 'manager' | 'user'
           avatar_url?: string | null
+          company_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -50,11 +44,13 @@ export interface Database {
           user_id: string
           title: string
           description: string | null
+          category: string
           file_url: string | null
           file_type: string | null
-          category: string
-          status: 'pending' | 'reviewing' | 'approved' | 'rejected'
-          ai_analysis: Json | null
+          file_size: number | null
+          status: string
+          ai_score: number | null
+          ai_summary: string | null
           created_at: string
           updated_at: string
         }
@@ -63,11 +59,13 @@ export interface Database {
           user_id: string
           title: string
           description?: string | null
+          category: string
           file_url?: string | null
           file_type?: string | null
-          category: string
-          status?: 'pending' | 'reviewing' | 'approved' | 'rejected'
-          ai_analysis?: Json | null
+          file_size?: number | null
+          status?: string
+          ai_score?: number | null
+          ai_summary?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -76,11 +74,13 @@ export interface Database {
           user_id?: string
           title?: string
           description?: string | null
+          category?: string
           file_url?: string | null
           file_type?: string | null
-          category?: string
-          status?: 'pending' | 'reviewing' | 'approved' | 'rejected'
-          ai_analysis?: Json | null
+          file_size?: number | null
+          status?: string
+          ai_score?: number | null
+          ai_summary?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -88,42 +88,45 @@ export interface Database {
       findings: {
         Row: {
           id: string
-          document_id: string | null
           user_id: string
+          document_id: string | null
           title: string
           description: string
-          severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
-          status: 'open' | 'in_progress' | 'resolved' | 'dismissed'
+          severity: string
+          status: string
           category: string
           due_date: string | null
+          assigned_to: string | null
           resolved_at: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          document_id?: string | null
           user_id: string
+          document_id?: string | null
           title: string
           description: string
-          severity?: 'critical' | 'high' | 'medium' | 'low' | 'info'
-          status?: 'open' | 'in_progress' | 'resolved' | 'dismissed'
+          severity: string
+          status?: string
           category: string
           due_date?: string | null
+          assigned_to?: string | null
           resolved_at?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          document_id?: string | null
           user_id?: string
+          document_id?: string | null
           title?: string
           description?: string
-          severity?: 'critical' | 'high' | 'medium' | 'low' | 'info'
-          status?: 'open' | 'in_progress' | 'resolved' | 'dismissed'
+          severity?: string
+          status?: string
           category?: string
           due_date?: string | null
+          assigned_to?: string | null
           resolved_at?: string | null
           created_at?: string
           updated_at?: string
@@ -134,24 +137,117 @@ export interface Database {
           id: string
           name: string
           description: string | null
-          version: string
-          requirements: Json
+          version: string | null
+          total_requirements: number
           created_at: string
         }
         Insert: {
           id?: string
           name: string
           description?: string | null
-          version: string
-          requirements: Json
+          version?: string | null
+          total_requirements?: number
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
           description?: string | null
-          version?: string
-          requirements?: Json
+          version?: string | null
+          total_requirements?: number
+          created_at?: string
+        }
+      }
+      user_compliance_progress: {
+        Row: {
+          id: string
+          user_id: string
+          framework_id: string
+          completed_requirements: number
+          compliance_score: number | null
+          last_assessed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          framework_id: string
+          completed_requirements?: number
+          compliance_score?: number | null
+          last_assessed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          framework_id?: string
+          completed_requirements?: number
+          compliance_score?: number | null
+          last_assessed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      activity_log: {
+        Row: {
+          id: string
+          user_id: string
+          action: string
+          entity_type: string
+          entity_id: string | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          action: string
+          entity_type: string
+          entity_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          action?: string
+          entity_type?: string
+          entity_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          message: string
+          type: string
+          read: boolean
+          action_url: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          message: string
+          type?: string
+          read?: boolean
+          action_url?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          message?: string
+          type?: string
+          read?: boolean
+          action_url?: string | null
           created_at?: string
         }
       }
@@ -163,15 +259,11 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      user_role: 'admin' | 'manager' | 'user'
-      document_status: 'pending' | 'reviewing' | 'approved' | 'rejected'
-      finding_severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
-      finding_status: 'open' | 'in_progress' | 'resolved' | 'dismissed'
+      [_ in never]: never
     }
   }
 }
 
-// Helper types
 export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
 export type InsertTables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type UpdateTables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
