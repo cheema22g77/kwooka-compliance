@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Shield, CheckCircle2, Clock, AlertTriangle, XCircle, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
+import { Shield, CheckCircle2, Clock, AlertTriangle, XCircle, ChevronDown, ChevronRight, Loader2, FileDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,53 +24,35 @@ export default function NDISPage() {
   const [expandedStandard, setExpandedStandard] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [filter, setFilter] = useState('all')
+  const [exporting, setExporting] = useState(false)
+  const [companyName, setCompanyName] = useState('Kwooka Health Services')
 
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   const fetchData = async () => {
     setLoading(true)
     setError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        setError('Not authenticated')
-        setLoading(false)
-        return
-      }
+      if (!user) { setError('Not authenticated'); setLoading(false); return }
 
-      const { data: standardsData, error: stdError } = await supabase
-        .from('ndis_standards')
-        .select('*')
-        .order('standard_number')
+      // Get company name from profile
+      const { data: profile } = await supabase.from('profiles').select('company_name').eq('id', user.id).single()
+      if (profile?.company_name) setCompanyName(profile.company_name)
 
-      if (stdError) {
-        setError(`Standards error: ${stdError.message}`)
-        setLoading(false)
-        return
-      }
+      const { data: standardsData, error: stdError } = await supabase.from('ndis_standards').select('*').order('standard_number')
+      if (stdError) { setError(`Standards error: ${stdError.message}`); setLoading(false); return }
 
-      const { data: complianceData } = await supabase
-        .from('ndis_compliance')
-        .select('*')
-        .eq('user_id', user.id)
+      const { data: complianceData } = await supabase.from('ndis_compliance').select('*').eq('user_id', user.id)
 
       setStandards(standardsData || [])
-      
       const complianceMap: Record<string, any> = {}
-      complianceData?.forEach((c: any) => {
-        complianceMap[c.standard_id] = c
-      })
+      complianceData?.forEach((c: any) => { complianceMap[c.standard_id] = c })
       setCompliance(complianceMap)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err: any) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
   const updateCompliance = async (standardId: string, status: string, notes?: string) => {
@@ -78,48 +60,59 @@ export default function NDISPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
       const existing = compliance[standardId]
-      
       if (existing) {
-        await (supabase.from('ndis_compliance') as any).update({
-          status,
-          evidence_notes: notes ?? existing.evidence_notes,
-          last_reviewed: new Date().toISOString(),
-        }).eq('id', existing.id)
+        await (supabase.from('ndis_compliance') as any).update({ status, evidence_notes: notes ?? existing.evidence_notes, last_reviewed: new Date().toISOString() }).eq('id', existing.id)
       } else {
-        await (supabase.from('ndis_compliance') as any).insert({
-          user_id: user.id,
-          standard_id: standardId,
-          status,
-          evidence_notes: notes || null,
-          last_reviewed: new Date().toISOString(),
-        })
+        await (supabase.from('ndis_compliance') as any).insert({ user_id: user.id, standard_id: standardId, status, evidence_notes: notes || null, last_reviewed: new Date().toISOString() })
       }
-
       fetchData()
+    } catch (err) { console.error('Update error:', err) }
+    finally { setSaving(null) }
+  }
+
+  const exportReport = async () => {
+    setExporting(true)
+    try {
+      const response = await fetch('/api/export-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName,
+          standards,
+          compliance,
+          generatedAt: new Date().toLocaleDateString('en-AU', { dateStyle: 'full' })
+        })
+      })
+      
+      const html = await response.text()
+      
+      // Open in new window for printing/saving as PDF
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        printWindow.document.write(html)
+        printWindow.document.close()
+        // Auto-trigger print dialog after a short delay
+        setTimeout(() => printWindow.print(), 500)
+      }
     } catch (err) {
-      console.error('Update error:', err)
+      console.error('Export error:', err)
     } finally {
-      setSaving(null)
+      setExporting(false)
     }
   }
 
   const getStatusInfo = (status: string) => statusOptions.find(s => s.value === status) || statusOptions[0]
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-  }
+  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
 
-  if (error) {
-    return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">NDIS Practice Standards</h1>
-        <div className="bg-red-100 text-red-600 p-4 rounded-lg">Error: {error}</div>
-        <Button onClick={fetchData} className="mt-4">Retry</Button>
-      </div>
-    )
-  }
+  if (error) return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">NDIS Practice Standards</h1>
+      <div className="bg-red-100 text-red-600 p-4 rounded-lg">Error: {error}</div>
+      <Button onClick={fetchData} className="mt-4">Retry</Button>
+    </div>
+  )
 
   const compliantCount = Object.values(compliance).filter((c: any) => c.status === 'compliant').length
   const inProgressCount = Object.values(compliance).filter((c: any) => c.status === 'in_progress').length
@@ -139,7 +132,13 @@ export default function NDISPage() {
           <h1 className="text-3xl font-bold tracking-tight">NDIS Practice Standards</h1>
           <p className="text-muted-foreground mt-1">Track compliance with all 19 NDIS Practice Standards</p>
         </div>
-        <Badge className="text-lg px-4 py-2 bg-kwooka-ochre">{complianceScore}% Compliant</Badge>
+        <div className="flex gap-2">
+          <Button onClick={exportReport} disabled={exporting} variant="outline">
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+            Export PDF
+          </Button>
+          <Badge className="text-lg px-4 py-2 bg-kwooka-ochre">{complianceScore}% Compliant</Badge>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-5">
