@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Wand2, FileText, Download, Copy, CheckCircle2, Loader2, Settings, Building, Users } from 'lucide-react'
+import { Wand2, FileText, Download, Copy, CheckCircle2, Loader2, Building, Users } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,18 +44,14 @@ export default function GeneratorPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
-      // Get user profile for company name
       const { data: profile } = await supabase
         .from('profiles')
         .select('company_name')
         .eq('id', user.id)
         .single()
       
-      if (profile?.company_name) {
-        setCompanyName(profile.company_name)
-      }
+      if (profile?.company_name) setCompanyName(profile.company_name)
 
-      // Get standards
       const { data: standardsData } = await supabase
         .from('ndis_standards')
         .select('*')
@@ -84,18 +80,33 @@ export default function GeneratorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          policyType: template?.name,
+          policyType: template?.name || '',
           policyId: selectedTemplate,
           companyName,
           companyType,
-          standardNumber: template?.standard,
-          standardName: standard?.name,
-          standardDescription: standard?.description,
+          standardNumber: template?.standard || 1,
+          standardName: standard?.name || template?.name || '',
+          standardDescription: standard?.description || template?.description || '',
         }),
       })
 
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Generation failed')
+      const text = await response.text()
+      
+      if (!text) {
+        throw new Error('Empty response from server')
+      }
+
+      let result
+      try {
+        result = JSON.parse(text)
+      } catch (e) {
+        console.error('Failed to parse response:', text)
+        throw new Error('Invalid response from server')
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Generation failed')
+      }
       
       setGeneratedPolicy(result.policy)
     } catch (err: any) {
@@ -139,36 +150,20 @@ export default function GeneratorPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Configuration */}
         <Card>
           <CardHeader>
             <CardTitle>Configure Policy</CardTitle>
             <CardDescription>Select policy type and customize for your organization</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Company Details */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Building className="h-4 w-4" />
-                Organization Name *
-              </Label>
-              <Input
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="e.g., Kwooka Health Services"
-              />
+              <Label className="flex items-center gap-2"><Building className="h-4 w-4" />Organization Name *</Label>
+              <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g., Kwooka Health Services" />
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Organization Type
-              </Label>
-              <select
-                value={companyType}
-                onChange={(e) => setCompanyType(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              >
+              <Label className="flex items-center gap-2"><Users className="h-4 w-4" />Organization Type</Label>
+              <select value={companyType} onChange={(e) => setCompanyType(e.target.value)} className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                 <option value="disability support provider">Disability Support Provider</option>
                 <option value="support coordination provider">Support Coordination Provider</option>
                 <option value="allied health provider">Allied Health Provider</option>
@@ -177,79 +172,45 @@ export default function GeneratorPage() {
               </select>
             </div>
 
-            {/* Policy Selection */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Select Policy Type *
-              </Label>
-              <select
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              >
+              <Label className="flex items-center gap-2"><FileText className="h-4 w-4" />Select Policy Type *</Label>
+              <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)} className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                 <option value="">Choose a policy...</option>
                 {POLICY_TEMPLATES.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} (Standard #{template.standard})
-                  </option>
+                  <option key={template.id} value={template.id}>{template.name} (Standard #{template.standard})</option>
                 ))}
               </select>
             </div>
 
             {selectedTemplate && (
               <div className="bg-accent/50 rounded-lg p-3">
-                <p className="text-sm text-muted-foreground">
-                  {POLICY_TEMPLATES.find(t => t.id === selectedTemplate)?.description}
-                </p>
-                <Badge className="mt-2" variant="outline">
-                  Aligned to NDIS Practice Standard #{POLICY_TEMPLATES.find(t => t.id === selectedTemplate)?.standard}
-                </Badge>
+                <p className="text-sm text-muted-foreground">{POLICY_TEMPLATES.find(t => t.id === selectedTemplate)?.description}</p>
+                <Badge className="mt-2" variant="outline">Aligned to NDIS Practice Standard #{POLICY_TEMPLATES.find(t => t.id === selectedTemplate)?.standard}</Badge>
               </div>
             )}
 
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
 
-            <Button
-              onClick={handleGenerate}
-              disabled={generating || !selectedTemplate || !companyName}
-              className="w-full bg-kwooka-ochre hover:bg-kwooka-ochre/90"
-            >
-              {generating ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating Policy (30-60 seconds)...</>
-              ) : (
-                <><Wand2 className="mr-2 h-4 w-4" />Generate Policy</>
-              )}
+            <Button onClick={handleGenerate} disabled={generating || !selectedTemplate || !companyName} className="w-full bg-kwooka-ochre hover:bg-kwooka-ochre/90">
+              {generating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating Policy (30-60 seconds)...</> : <><Wand2 className="mr-2 h-4 w-4" />Generate Policy</>}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Policy Templates Quick Select */}
         <Card>
           <CardHeader>
             <CardTitle>Available Policies</CardTitle>
             <CardDescription>Click to select a policy template</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2">
+            <div className="grid gap-2 max-h-[400px] overflow-y-auto">
               {POLICY_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => setSelectedTemplate(template.id)}
-                  className={cn(
-                    'flex items-center justify-between p-3 rounded-lg border text-left transition-colors',
-                    selectedTemplate === template.id
-                      ? 'border-kwooka-ochre bg-kwooka-ochre/10'
-                      : 'hover:bg-accent'
-                  )}
-                >
+                <button key={template.id} onClick={() => setSelectedTemplate(template.id)} className={cn('flex items-center justify-between p-3 rounded-lg border text-left transition-colors', selectedTemplate === template.id ? 'border-kwooka-ochre bg-kwooka-ochre/10' : 'hover:bg-accent')}>
                   <div>
                     <p className="font-medium text-sm">{template.name}</p>
                     <p className="text-xs text-muted-foreground">Standard #{template.standard}</p>
                   </div>
-                  {selectedTemplate === template.id && (
-                    <CheckCircle2 className="h-5 w-5 text-kwooka-ochre" />
-                  )}
+                  {selectedTemplate === template.id && <CheckCircle2 className="h-5 w-5 text-kwooka-ochre" />}
                 </button>
               ))}
             </div>
@@ -257,7 +218,6 @@ export default function GeneratorPage() {
         </Card>
       </div>
 
-      {/* Generated Policy */}
       {generatedPolicy && (
         <Card>
           <CardHeader>
@@ -272,38 +232,24 @@ export default function GeneratorPage() {
                   {copied ? 'Copied!' : 'Copy'}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleDownload}>
-                  <Download className="h-4 w-4 mr-1" />
-                  Download
+                  <Download className="h-4 w-4 mr-1" />Download
                 </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <textarea
-              value={generatedPolicy}
-              onChange={(e) => setGeneratedPolicy(e.target.value)}
-              rows={25}
-              className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm font-mono"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              ⚠️ This is an AI-generated template. Please review and customize to match your organization&apos;s specific needs and practices before use.
-            </p>
+            <textarea value={generatedPolicy} onChange={(e) => setGeneratedPolicy(e.target.value)} rows={25} className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm font-mono" />
+            <p className="text-xs text-muted-foreground mt-2">⚠️ This is an AI-generated template. Please review and customize before use.</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Info Card */}
       {!generatedPolicy && (
         <Card>
           <CardContent className="py-8 text-center">
             <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-medium text-lg mb-2">How It Works</h3>
-            <p className="text-muted-foreground text-sm max-w-md mx-auto">
-              1. Enter your organization name<br/>
-              2. Select a policy type<br/>
-              3. Click Generate to create a compliant policy<br/>
-              4. Review, customize, and download
-            </p>
+            <p className="text-muted-foreground text-sm">1. Enter your organization name<br/>2. Select a policy type<br/>3. Click Generate to create a compliant policy<br/>4. Review, customize, and download</p>
           </CardContent>
         </Card>
       )}
