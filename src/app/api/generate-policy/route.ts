@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 1500,
         messages: [{
           role: 'user',
-          content: `Generate a brief ${policyType} for "${companyName}" (${companyType}). Aligned with NDIS Standard #${standardNumber}. Include: PURPOSE, SCOPE, POLICY STATEMENT, RESPONSIBILITIES, KEY PROCEDURES, REVIEW. Keep concise. Use [DATE], [NAME] as placeholders.`
+          content: `Write a short ${policyType} for ${companyName}. NDIS Standard #${standardNumber}. Sections: Purpose, Policy, Procedures, Review. Be brief.`
         }]
       })
     })
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json()
-    const policy = data.content?.[0]?.text || ''
+    const policy = data.content?.[0]?.text || 'No policy generated'
 
     return NextResponse.json({ policy })
 
