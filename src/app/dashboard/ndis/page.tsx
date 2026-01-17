@@ -36,7 +36,6 @@ export default function NDISPage() {
     setError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      console.log('User:', user?.id)
       
       if (!user) {
         setError('Not authenticated')
@@ -49,20 +48,16 @@ export default function NDISPage() {
         .select('*')
         .order('standard_number')
 
-      console.log('Standards:', standardsData, 'Error:', stdError)
-
       if (stdError) {
         setError(`Standards error: ${stdError.message}`)
         setLoading(false)
         return
       }
 
-      const { data: complianceData, error: compError } = await supabase
+      const { data: complianceData } = await supabase
         .from('ndis_compliance')
         .select('*')
         .eq('user_id', user.id)
-
-      console.log('Compliance:', complianceData, 'Error:', compError)
 
       setStandards(standardsData || [])
       
@@ -72,7 +67,6 @@ export default function NDISPage() {
       })
       setCompliance(complianceMap)
     } catch (err: any) {
-      console.error('Fetch error:', err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -114,11 +108,7 @@ export default function NDISPage() {
   const getStatusInfo = (status: string) => statusOptions.find(s => s.value === status) || statusOptions[0]
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
   }
 
   if (error) {
@@ -131,15 +121,11 @@ export default function NDISPage() {
     )
   }
 
-  const stats = {
-    total: standards.length,
-    compliant: Object.values(compliance).filter((c: any) => c.status === 'compliant').length,
-    inProgress: Object.values(compliance).filter((c: any) => c.status === 'in_progress').length,
-    nonCompliant: Object.values(compliance).filter((c: any) => c.status === 'non_compliant').length,
-  }
-  stats.notStarted = stats.total - stats.compliant - stats.inProgress - stats.nonCompliant
-
-  const complianceScore = stats.total > 0 ? Math.round((stats.compliant / stats.total) * 100) : 0
+  const compliantCount = Object.values(compliance).filter((c: any) => c.status === 'compliant').length
+  const inProgressCount = Object.values(compliance).filter((c: any) => c.status === 'in_progress').length
+  const nonCompliantCount = Object.values(compliance).filter((c: any) => c.status === 'non_compliant').length
+  const notStartedCount = standards.length - compliantCount - inProgressCount - nonCompliantCount
+  const complianceScore = standards.length > 0 ? Math.round((compliantCount / standards.length) * 100) : 0
 
   const filteredStandards = filter === 'all' ? standards 
     : filter === 'core' ? standards.filter(s => s.category === 'Core')
@@ -158,11 +144,11 @@ export default function NDISPage() {
 
       <div className="grid gap-4 md:grid-cols-5">
         {[
-          { label: 'Total', value: stats.total, icon: Shield, color: 'text-blue-500 bg-blue-100' },
-          { label: 'Compliant', value: stats.compliant, icon: CheckCircle2, color: 'text-green-500 bg-green-100' },
-          { label: 'In Progress', value: stats.inProgress, icon: Clock, color: 'text-blue-500 bg-blue-100' },
-          { label: 'Non-Compliant', value: stats.nonCompliant, icon: XCircle, color: 'text-red-500 bg-red-100' },
-          { label: 'Not Started', value: stats.notStarted, icon: AlertTriangle, color: 'text-gray-500 bg-gray-100' },
+          { label: 'Total', value: standards.length, icon: Shield, color: 'text-blue-500 bg-blue-100' },
+          { label: 'Compliant', value: compliantCount, icon: CheckCircle2, color: 'text-green-500 bg-green-100' },
+          { label: 'In Progress', value: inProgressCount, icon: Clock, color: 'text-blue-500 bg-blue-100' },
+          { label: 'Non-Compliant', value: nonCompliantCount, icon: XCircle, color: 'text-red-500 bg-red-100' },
+          { label: 'Not Started', value: notStartedCount, icon: AlertTriangle, color: 'text-gray-500 bg-gray-100' },
         ].map((stat) => {
           const Icon = stat.icon
           return (
@@ -182,13 +168,13 @@ export default function NDISPage() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Progress</span>
-            <span className="text-sm text-muted-foreground">{stats.compliant} of {stats.total}</span>
+            <span className="text-sm text-muted-foreground">{compliantCount} of {standards.length}</span>
           </div>
           <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
             <div className="h-full flex">
-              <div className="bg-green-500" style={{ width: `${(stats.compliant / stats.total) * 100}%` }} />
-              <div className="bg-blue-500" style={{ width: `${(stats.inProgress / stats.total) * 100}%` }} />
-              <div className="bg-red-500" style={{ width: `${(stats.nonCompliant / stats.total) * 100}%` }} />
+              <div className="bg-green-500" style={{ width: `${(compliantCount / standards.length) * 100}%` }} />
+              <div className="bg-blue-500" style={{ width: `${(inProgressCount / standards.length) * 100}%` }} />
+              <div className="bg-red-500" style={{ width: `${(nonCompliantCount / standards.length) * 100}%` }} />
             </div>
           </div>
         </CardContent>
