@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { createClient } from '@supabase/supabase-js'
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
-})
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,25 +13,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
     }
 
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
     const prompt = `You are an NDIS compliance expert auditor. Analyze this policy document against NDIS Practice Standard: "${standardName}".
 
 REQUIREMENTS TO CHECK:
-${requirements.map((r: any, i: number) => `${i + 1}. ${r.title}: ${r.description}
-   Evidence examples: ${r.evidence_examples}`).join('\n\n')}
+${requirements.map((r: any, i: number) => `${i + 1}. ${r.title}: ${r.description}\n   Evidence examples: ${r.evidence_examples}`).join('\n\n')}
 
 DOCUMENT TEXT:
 """
 ${documentText.substring(0, 15000)}
 """
 
-TASK:
-Analyze the document and check each requirement. For each requirement:
-1. Determine if it is MET, PARTIAL, or NOT_MET
-2. Quote relevant text from the document (if found)
-3. Explain your reasoning
-4. Provide specific recommendations if not fully met
-
-Respond in this exact JSON format:
+Analyze the document and respond in this exact JSON format (no markdown):
 {
   "overallScore": <number 0-100>,
   "overallStatus": "<COMPLIANT|PARTIAL|NON_COMPLIANT>",
@@ -65,12 +49,7 @@ Respond in this exact JSON format:
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
+      messages: [{ role: 'user', content: prompt }]
     })
 
     const content = response.content[0]
@@ -78,24 +57,11 @@ Respond in this exact JSON format:
       return NextResponse.json({ error: 'Unexpected response type' }, { status: 500 })
     }
 
-    // Parse the JSON response
-    let analysis
-    try {
-      // Extract JSON from the response (handle markdown code blocks)
-      let jsonText = content.text
-      const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (jsonMatch) {
-        jsonText = jsonMatch[1]
-      }
-      analysis = JSON.parse(jsonText.trim())
-    } catch (e) {
-      console.error('Failed to parse AI response:', content.text)
-      return NextResponse.json({ 
-        error: 'Failed to parse analysis', 
-        rawResponse: content.text 
-      }, { status: 500 })
-    }
-
+    let jsonText = content.text
+    const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonMatch) jsonText = jsonMatch[1]
+    
+    const analysis = JSON.parse(jsonText.trim())
     return NextResponse.json(analysis)
 
   } catch (error: any) {
