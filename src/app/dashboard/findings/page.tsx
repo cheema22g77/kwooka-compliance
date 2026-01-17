@@ -32,18 +32,30 @@ import { cn, formatDate, getSeverityColor, getStatusColor } from '@/lib/utils'
 const severityOptions = ['All', 'critical', 'high', 'medium', 'low', 'info']
 const CATEGORIES = ['Privacy', 'Security', 'Safety', 'HR', 'Legal', 'Training', 'Financial', 'Other']
 
+type Finding = {
+  id: string
+  user_id: string
+  title: string
+  description: string
+  severity: string
+  status: string
+  category: string
+  due_date: string | null
+  created_at: string
+  resolved_at: string | null
+}
+
 export default function FindingsPage() {
-  const [findings, setFindings] = useState<any[]>([])
+  const [findings, setFindings] = useState<Finding[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSeverity, setSelectedSeverity] = useState('All')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   
-  // Create form state
   const [newFinding, setNewFinding] = useState({
     title: '',
     description: '',
-    severity: 'medium',
+    severity: 'medium' as 'critical' | 'high' | 'medium' | 'low' | 'info',
     category: 'Security',
     due_date: '',
   })
@@ -64,7 +76,7 @@ export default function FindingsPage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setFindings(data || [])
+      setFindings((data as Finding[]) || [])
     } catch (error) {
       console.error('Error fetching findings:', error)
     } finally {
@@ -84,15 +96,17 @@ export default function FindingsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { error } = await supabase.from('findings').insert({
+      const insertData = {
         user_id: user.id,
         title: newFinding.title,
         description: newFinding.description,
-        severity: newFinding.severity,
+        severity: newFinding.severity as 'critical' | 'high' | 'medium' | 'low' | 'info',
         category: newFinding.category,
         due_date: newFinding.due_date || null,
-        status: 'open',
-      })
+        status: 'open' as 'open' | 'in_progress' | 'resolved' | 'dismissed',
+      }
+
+      const { error } = await supabase.from('findings').insert(insertData)
 
       if (error) throw error
 
@@ -108,7 +122,7 @@ export default function FindingsPage() {
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
-      const updates: any = { status: newStatus }
+      const updates: { status: string; resolved_at?: string } = { status: newStatus }
       if (newStatus === 'resolved') {
         updates.resolved_at = new Date().toISOString()
       }
@@ -148,7 +162,6 @@ export default function FindingsPage() {
 
   return (
     <div className="space-y-6 page-enter">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Findings</h1>
@@ -162,7 +175,6 @@ export default function FindingsPage() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         {[
           { label: 'Total Findings', value: stats.total, icon: FileText, color: 'text-blue-500 bg-blue-100' },
@@ -189,7 +201,6 @@ export default function FindingsPage() {
         })}
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -221,7 +232,6 @@ export default function FindingsPage() {
         </CardContent>
       </Card>
 
-      {/* Findings List */}
       <div className="space-y-4">
         {loading ? (
           <Card>
@@ -327,7 +337,6 @@ export default function FindingsPage() {
         )}
       </div>
 
-      {/* Create Finding Dialog */}
       {showCreateDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowCreateDialog(false)} />
@@ -368,7 +377,7 @@ export default function FindingsPage() {
                   <select
                     id="severity"
                     value={newFinding.severity}
-                    onChange={(e) => setNewFinding({ ...newFinding, severity: e.target.value })}
+                    onChange={(e) => setNewFinding({ ...newFinding, severity: e.target.value as 'critical' | 'high' | 'medium' | 'low' | 'info' })}
                     className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                   >
                     <option value="critical">Critical</option>
