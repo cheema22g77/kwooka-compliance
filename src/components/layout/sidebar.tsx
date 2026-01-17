@@ -4,18 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard,
-  FileText,
-  AlertTriangle,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  HelpCircle,
-  Sparkles,
-  Shield,
-  Wand2,
-} from 'lucide-react'
+import { LayoutDashboard, FileText, AlertTriangle, Settings, ChevronLeft, ChevronRight, HelpCircle, Sparkles, Shield, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
