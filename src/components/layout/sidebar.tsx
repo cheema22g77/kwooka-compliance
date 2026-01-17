@@ -2,13 +2,13 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   FileText,
   AlertTriangle,
   Settings,
-  Shield,
   ChevronLeft,
   ChevronRight,
   HelpCircle,
@@ -81,9 +81,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-kwooka-ochre to-kwooka-rust shadow-sm">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
+            <Image
+              src="/images/kwooka_mascot_clean.png"
+              alt="Kwooka"
+              width={40}
+              height={40}
+              className="rounded-lg"
+            />
             {!collapsed && (
               <div className="flex flex-col">
                 <span className="font-semibold text-foreground tracking-tight">
@@ -166,9 +170,26 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </nav>
         </ScrollArea>
 
+        {/* Mascot Section - Only when expanded */}
+        {!collapsed && (
+          <div className="px-4 py-3">
+            <div className="bg-gradient-to-br from-kwooka-ochre/10 to-kwooka-rust/10 rounded-xl p-4 text-center">
+              <Image
+                src="/images/kwooka_mascot_clean.png"
+                alt="Kwooka Mascot"
+                width={80}
+                height={80}
+                className="mx-auto mb-2 drop-shadow-md"
+              />
+              <p className="text-xs text-muted-foreground">
+                Need help? I&apos;m here to assist with your compliance journey!
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Bottom Navigation */}
         <div className="border-t p-3">
-          <Separator className="mb-3" />
           <nav className="flex flex-col gap-1">
             {bottomNav.map((item) => {
               const isActive = pathname === item.href
