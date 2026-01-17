@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Sparkles, FileText, CheckCircle2, AlertTriangle, XCircle, Loader2, ChevronDown, ChevronRight, Zap, Target, TrendingUp, FileWarning } from 'lucide-react'
+import { Sparkles, FileText, CheckCircle2, AlertTriangle, XCircle, Loader2, ChevronDown, ChevronRight, Zap, Target, TrendingUp, FileWarning,Upload } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -151,7 +151,26 @@ export default function AnalysisPage() {
               ))}
             </select>
           </div>
-
+{/* Input Method Toggle */}
+<div className="flex gap-2 mb-4">
+  <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById('fileUpload')?.click()}>
+    <Upload className="h-4 w-4 mr-2" />
+    Upload File
+  </Button>
+  <input
+    id="fileUpload"
+    type="file"
+    accept=".pdf,.docx,.txt"
+    className="hidden"
+    onChange={async (e) => {
+      const file = e.target.files?.[0]
+      if (file) {
+        const text = await file.text()
+        setDocumentText(text)
+      }
+    }}
+  />
+</div>
           <div className="space-y-2">
             <Label>Document Text *</Label>
             <textarea 
