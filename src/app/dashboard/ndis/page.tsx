@@ -20,39 +20,46 @@ export default function NDISPage() {
   const [standards, setStandards] = useState<any[]>([])
   const [compliance, setCompliance] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [expandedStandard, setExpandedStandard] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [filter, setFilter] = useState('all')
   const [exporting, setExporting] = useState(false)
-  const [companyName, setCompanyName] = useState('Kwooka Health Services')
 
   const supabase = createClient()
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+  }, [])
 
   const fetchData = async () => {
-    setLoading(true)
-    setError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setError('Not authenticated'); setLoading(false); return }
+      if (!user) return
 
-      // Get company name from profile
-      const { data: profile } = await supabase.from('profiles').select('company_name').eq('id', user.id).single()
-      if (profile?.company_name) setCompanyName(profile.company_name)
+      const { data: standardsData } = await supabase
+        .from('ndis_standards')
+        .select('*')
+        .order('standard_number')
 
-      const { data: standardsData, error: stdError } = await supabase.from('ndis_standards').select('*').order('standard_number')
-      if (stdError) { setError(`Standards error: ${stdError.message}`); setLoading(false); return }
-
-      const { data: complianceData } = await supabase.from('ndis_compliance').select('*').eq('user_id', user.id)
+      const { data: complianceData } = await supabase
+        .from('ndis_compliance')
+        .select('*')
+        .eq('user_id', user.id)
 
       setStandards(standardsData || [])
+      
       const complianceMap: Record<string, any> = {}
-      complianceData?.forEach((c: any) => { complianceMap[c.standard_id] = c })
+      if (complianceData) {
+        complianceData.forEach((c: any) => {
+          complianceMap[c.standard_id] = c
+        })
+      }
       setCompliance(complianceMap)
-    } catch (err: any) { setError(err.message) }
-    finally { setLoading(false) }
+    } catch (err) {
+      console.error('Error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const updateCompliance = async (standardId: string, status: string, notes?: string) => {
@@ -60,15 +67,30 @@ export default function NDISPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
       const existing = compliance[standardId]
+      
       if (existing) {
-        await (supabase.from('ndis_compliance') as any).update({ status, evidence_notes: notes ?? existing.evidence_notes, last_reviewed: new Date().toISOString() }).eq('id', existing.id)
+        await (supabase.from('ndis_compliance') as any).update({
+          status,
+          evidence_notes: notes ?? existing.evidence_notes,
+          last_reviewed: new Date().toISOString(),
+        }).eq('id', existing.id)
       } else {
-        await (supabase.from('ndis_compliance') as any).insert({ user_id: user.id, standard_id: standardId, status, evidence_notes: notes || null, last_reviewed: new Date().toISOString() })
+        await (supabase.from('ndis_compliance') as any).insert({
+          user_id: user.id,
+          standard_id: standardId,
+          status,
+          evidence_notes: notes || null,
+          last_reviewed: new Date().toISOString(),
+        })
       }
       fetchData()
-    } catch (err) { console.error('Update error:', err) }
-    finally { setSaving(null) }
+    } catch (err) {
+      console.error('Update error:', err)
+    } finally {
+      setSaving(null)
+    }
   }
 
   const exportReport = async () => {
@@ -78,7 +100,7 @@ export default function NDISPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          companyName,
+          companyName: 'Kwooka Health Services',
           standards,
           compliance,
           generatedAt: new Date().toLocaleDateString('en-AU', { dateStyle: 'full' })
@@ -86,13 +108,10 @@ export default function NDISPage() {
       })
       
       const html = await response.text()
-      
-      // Open in new window for printing/saving as PDF
       const printWindow = window.open('', '_blank')
       if (printWindow) {
         printWindow.document.write(html)
         printWindow.document.close()
-        // Auto-trigger print dialog after a short delay
         setTimeout(() => printWindow.print(), 500)
       }
     } catch (err) {
@@ -104,15 +123,13 @@ export default function NDISPage() {
 
   const getStatusInfo = (status: string) => statusOptions.find(s => s.value === status) || statusOptions[0]
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-
-  if (error) return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">NDIS Practice Standards</h1>
-      <div className="bg-red-100 text-red-600 p-4 rounded-lg">Error: {error}</div>
-      <Button onClick={fetchData} className="mt-4">Retry</Button>
-    </div>
-  )
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   const compliantCount = Object.values(compliance).filter((c: any) => c.status === 'compliant').length
   const inProgressCount = Object.values(compliance).filter((c: any) => c.status === 'in_progress').length
@@ -126,14 +143,14 @@ export default function NDISPage() {
     : standards.filter(s => s.category?.includes('High Risk'))
 
   return (
-    <div className="space-y-6 page-enter">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">NDIS Practice Standards</h1>
           <p className="text-muted-foreground mt-1">Track compliance with all 19 NDIS Practice Standards</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={exportReport} disabled={exporting} variant="outline">
+        <div className="flex gap-2 items-center">
+          <Button onClick={exportReport} disabled={exporting} variant="outline" size="sm">
             {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
             Export PDF
           </Button>
@@ -142,25 +159,11 @@ export default function NDISPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-5">
-        {[
-          { label: 'Total', value: standards.length, icon: Shield, color: 'text-blue-500 bg-blue-100' },
-          { label: 'Compliant', value: compliantCount, icon: CheckCircle2, color: 'text-green-500 bg-green-100' },
-          { label: 'In Progress', value: inProgressCount, icon: Clock, color: 'text-blue-500 bg-blue-100' },
-          { label: 'Non-Compliant', value: nonCompliantCount, icon: XCircle, color: 'text-red-500 bg-red-100' },
-          { label: 'Not Started', value: notStartedCount, icon: AlertTriangle, color: 'text-gray-500 bg-gray-100' },
-        ].map((stat) => {
-          const Icon = stat.icon
-          return (
-            <Card key={stat.label}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', stat.color)}><Icon className="h-5 w-5" /></div>
-                  <div><p className="text-2xl font-bold">{stat.value}</p><p className="text-xs text-muted-foreground">{stat.label}</p></div>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg text-blue-500 bg-blue-100"><Shield className="h-5 w-5" /></div><div><p className="text-2xl font-bold">{standards.length}</p><p className="text-xs text-muted-foreground">Total</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg text-green-500 bg-green-100"><CheckCircle2 className="h-5 w-5" /></div><div><p className="text-2xl font-bold">{compliantCount}</p><p className="text-xs text-muted-foreground">Compliant</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg text-blue-500 bg-blue-100"><Clock className="h-5 w-5" /></div><div><p className="text-2xl font-bold">{inProgressCount}</p><p className="text-xs text-muted-foreground">In Progress</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg text-red-500 bg-red-100"><XCircle className="h-5 w-5" /></div><div><p className="text-2xl font-bold">{nonCompliantCount}</p><p className="text-xs text-muted-foreground">Non-Compliant</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 bg-gray-100"><AlertTriangle className="h-5 w-5" /></div><div><p className="text-2xl font-bold">{notStartedCount}</p><p className="text-xs text-muted-foreground">Not Started</p></div></div></CardContent></Card>
       </div>
 
       <Card>
@@ -169,12 +172,10 @@ export default function NDISPage() {
             <span className="text-sm font-medium">Progress</span>
             <span className="text-sm text-muted-foreground">{compliantCount} of {standards.length}</span>
           </div>
-          <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full flex">
-              <div className="bg-green-500" style={{ width: `${(compliantCount / standards.length) * 100}%` }} />
-              <div className="bg-blue-500" style={{ width: `${(inProgressCount / standards.length) * 100}%` }} />
-              <div className="bg-red-500" style={{ width: `${(nonCompliantCount / standards.length) * 100}%` }} />
-            </div>
+          <div className="h-4 bg-gray-100 rounded-full overflow-hidden flex">
+            <div className="bg-green-500 h-full" style={{ width: `${(compliantCount / Math.max(standards.length, 1)) * 100}%` }} />
+            <div className="bg-blue-500 h-full" style={{ width: `${(inProgressCount / Math.max(standards.length, 1)) * 100}%` }} />
+            <div className="bg-red-500 h-full" style={{ width: `${(nonCompliantCount / Math.max(standards.length, 1)) * 100}%` }} />
           </div>
         </CardContent>
       </Card>
@@ -199,7 +200,9 @@ export default function NDISPage() {
             <Card key={standard.id}>
               <div className="p-4 cursor-pointer hover:bg-accent/50" onClick={() => setExpandedStandard(isExpanded ? null : standard.id)}>
                 <div className="flex items-center gap-4">
-                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg shrink-0', statusInfo.color)}><StatusIcon className="h-5 w-5" /></div>
+                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg shrink-0', statusInfo.color)}>
+                    <StatusIcon className="h-5 w-5" />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-kwooka-ochre">#{standard.standard_number}</span>
@@ -228,7 +231,17 @@ export default function NDISPage() {
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Evidence Notes</Label>
-                    <textarea defaultValue={comp?.evidence_notes || ''} placeholder="Document your evidence..." rows={3} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" onBlur={(e) => { if (e.target.value !== (comp?.evidence_notes || '')) updateCompliance(standard.id, status, e.target.value) }} />
+                    <textarea 
+                      defaultValue={comp?.evidence_notes || ''} 
+                      placeholder="Document your evidence..." 
+                      rows={3} 
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" 
+                      onBlur={(e) => { 
+                        if (e.target.value !== (comp?.evidence_notes || '')) {
+                          updateCompliance(standard.id, status, e.target.value) 
+                        }
+                      }} 
+                    />
                   </div>
                 </div>
               )}
