@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Sidebar, Header } from '@/components/layout'
+import { Sidebar } from '@/components/layout/sidebar'
+import { Header } from '@/components/layout/header'
 import { cn } from '@/lib/utils'
+import { SectorProvider } from '@/contexts/sector-context'
 
 export default function DashboardLayout({
   children,
@@ -12,22 +14,22 @@ export default function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
-      <div
-        className={cn(
+    <SectorProvider>
+      <div className="min-h-screen bg-slate-50">
+        <Sidebar 
+          collapsed={sidebarCollapsed} 
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
+        />
+        <div className={cn(
           'transition-all duration-300',
           sidebarCollapsed ? 'ml-[70px]' : 'ml-[260px]'
-        )}
-      >
-        <Header />
-        <main className="p-6">
-          <div className="mx-auto max-w-7xl">{children}</div>
-        </main>
+        )}>
+          <Header />
+          <main className="p-6">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </SectorProvider>
   )
 }

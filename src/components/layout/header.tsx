@@ -1,95 +1,128 @@
 'use client'
 
-import React from 'react'
-import { useRouter } from 'next/navigation'
-import { Bell, Search, LogOut, User, Settings } from 'lucide-react'
-import { useAuth } from '@/hooks'
+import React, { useState, useEffect } from 'react'
+import { Bell, Search, LogOut, Settings, ChevronDown, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getInitials } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 
 export function Header() {
-  const { user, profile, signOut } = useAuth()
-  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const supabase = createClient()
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/auth/login')
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', user.id)
+          .single()
+        setProfile(profileData)
+      }
+    }
+    fetchUser()
+  }, [])
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await supabase.auth.signOut()
+      localStorage.clear()
+      window.location.href = '/auth/login'
+    } catch (error) {
+      console.error('Logout error:', error)
+      window.location.href = '/auth/login'
+    }
   }
 
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User'
+  const displayEmail = profile?.email || user?.email || ''
+
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white px-6">
       {/* Search */}
-      <div className="flex items-center gap-4 flex-1 max-w-xl">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search documents, findings..."
-            className="pl-9 bg-muted/50 border-0 focus-visible:ring-1"
-          />
-        </div>
+      <div className="relative flex-1 max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search documents, findings..."
+          className="pl-10 bg-slate-50 border-slate-200"
+        />
       </div>
 
-      {/* Right side */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4 ml-auto">
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-kwooka-ochre text-[10px] font-medium text-white">
+          <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
             3
           </span>
         </Button>
 
         {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-2">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={profile?.avatar_url || undefined} />
-                <AvatarFallback className="bg-kwooka-ochre/10 text-kwooka-ochre text-xs">
-                  {getInitials(profile?.full_name || user?.email)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden md:flex flex-col items-start">
-                <span className="text-sm font-medium">
-                  {profile?.full_name || 'User'}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {profile?.company_name || user?.email}
-                </span>
+        <div className="relative">
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-3 hover:bg-slate-50 rounded-lg px-3 py-2 transition-colors"
+          >
+            <div className="h-8 w-8 rounded-full bg-kwooka-ochre/20 flex items-center justify-center">
+              <span className="text-sm font-medium text-kwooka-ochre">
+                {displayName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="text-left hidden sm:block">
+              <p className="text-sm font-medium">{displayName}</p>
+              <p className="text-xs text-muted-foreground truncate max-w-[150px]">{displayEmail}</p>
+            </div>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </button>
+
+          {/* Dropdown Menu */}
+          {showDropdown && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowDropdown(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border z-50">
+                <div className="p-3 border-b">
+                  <p className="font-medium text-sm">{displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
+                </div>
+                <div className="p-1">
+                  <Link href="/dashboard/settings">
+                    <button 
+                      onClick={() => setShowDropdown(false)}
+                      className="flex items-center gap-3 w-full px-3 py-2 text-sm hover:bg-slate-50 rounded-md"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </button>
+                  </Link>
+                  <button 
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="flex items-center gap-3 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md disabled:opacity-50"
+                  >
+                    {loggingOut ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <LogOut className="h-4 w-4" />
+                    )}
+                    {loggingOut ? 'Logging out...' : 'Logout'}
+                  </button>
+                </div>
               </div>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
-              <User className="mr-2 h-4 w-4" />
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleSignOut}
-              className="text-destructive focus:text-destructive"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </>
+          )}
+        </div>
       </div>
     </header>
   )
