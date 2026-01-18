@@ -9,11 +9,11 @@ interface ChunkResult {
   section_number?: string;
   source_id?: string;
   metadata?: Record<string, unknown>;
-  legislation_sources?: {
+  legislation_sources?: Array<{
     name: string;
     source_type: string;
     sector?: string;
-  };
+  }>;
 }
 
 interface SearchResult {
@@ -166,7 +166,7 @@ export async function searchLegislation(
         const existing = scoreMap.get(r.id);
         if (existing) {
           existing.tfidf = r.score / maxTFIDF;
-          existing.matchedTerms = [...new Set([...existing.matchedTerms, ...r.matchedTerms])];
+          existing.matchedTerms = Array.from(new Set([...existing.matchedTerms, ...r.matchedTerms]));
         } else {
           scoreMap.set(r.id, {
             bm25: 0,
@@ -205,7 +205,7 @@ export async function searchLegislation(
   if (sector) {
     filtered = filtered.filter(r => {
       const chunk = cachedChunks.find(c => c.id === r.id);
-      return chunk?.legislation_sources?.sector === sector;
+      return chunk?.legislation_sources?.[0]?.sector === sector;
     });
   }
 
@@ -213,7 +213,7 @@ export async function searchLegislation(
     .slice(0, topK)
     .map(r => {
       const chunk = cachedChunks.find(c => c.id === r.id)!;
-      const source = chunk.legislation_sources;
+      const source = chunk.legislation_sources?.[0];
 
       return {
         id: r.id,

@@ -44,7 +44,7 @@ export interface PDFMetadata {
 export async function parsePDF(buffer: ArrayBuffer): Promise<ParsedPDF> {
   try {
     const pdf = await pdfjs.getDocument({ data: buffer }).promise
-    const metadata = await pdf.getMetadata()
+    const metadata = await pdf.getMetadata() as any
     
     const pages: PageContent[] = []
     let fullText = ''

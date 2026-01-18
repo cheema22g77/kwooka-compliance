@@ -64,7 +64,7 @@ export class BM25Search {
       this.docLengths.push(tokens.length);
 
       const uniqueTerms = new Set(tokens);
-      for (const term of uniqueTerms) {
+      for (const term of Array.from(uniqueTerms)) {
         this.termDocFreq.set(term, (this.termDocFreq.get(term) || 0) + 1);
       }
     }
@@ -177,12 +177,12 @@ export class TFIDFSearch {
 
     for (const tokens of this.tokenizedDocs) {
       const uniqueTerms = new Set(tokens);
-      for (const term of uniqueTerms) {
+      for (const term of Array.from(uniqueTerms)) {
         termDocCount.set(term, (termDocCount.get(term) || 0) + 1);
       }
     }
 
-    for (const [term, count] of termDocCount) {
+    for (const [term, count] of Array.from(termDocCount.entries())) {
       this.idfScores.set(term, Math.log(N / count));
     }
   }

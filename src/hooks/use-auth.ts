@@ -43,5 +43,25 @@ export function useAuth(requireAuth: boolean = true) {
     return () => subscription.unsubscribe()
   }, [requireAuth, router])
 
-  return { user, loading }
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/update-password`,
+    })
+    return { error }
+  }
+
+  const signUp = async (email: string, password: string, fullName: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
+    })
+    return { error }
+  }
+
+  return { user, loading, resetPassword, signUp }
 }

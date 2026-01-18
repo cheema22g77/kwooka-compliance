@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
         }
       } catch (ragError) {
         console.error("RAG search error:", ragError);
-        // Continue without RAG if it fails
       }
     }
 
@@ -96,11 +95,7 @@ export async function POST(request: NextRequest) {
             }
 
             if (event.type === "message_stop") {
-              const metadata = extractMetadata(fullContent, sector);
-              // Add citations to metadata
-              if (citations.length > 0) {
-                metadata.citations = citations;
-              }
+              const metadata = extractMetadata(fullContent, sector, citations);
               const doneData = JSON.stringify({ type: "done", content: fullContent, metadata });
               controller.enqueue(encoder.encode(`data: ${doneData}\n\n`));
             }
@@ -132,7 +127,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function extractMetadata(content: string, sector?: string) {
+function extractMetadata(content: string, sector?: string, citations?: any[]) {
   const metadata: { 
     riskLevel?: string; 
     regulationRefs?: Array<{ id: string; name: string; section: string }>; 
@@ -140,7 +135,12 @@ function extractMetadata(content: string, sector?: string) {
     citations?: any[];
   } = {};
 
-  const riskPatterns = {
+  // Add citations if available
+  if (citations && citations.length > 0) {
+    metadata.citations = citations;
+  }
+
+  const riskPatterns: Record<string, RegExp> = {
     critical: /\b(critical|severe|immediate action required)\b/i,
     high: /\b(high risk|significant risk|urgent)\b/i,
     medium: /\b(medium risk|moderate|should address)\b/i,
@@ -164,8 +164,8 @@ function extractMetadata(content: string, sector?: string) {
   ];
   
   for (const pattern of patterns) {
-    const matches = content.matchAll(pattern);
-    for (const match of matches) {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
       refs.push({ id: `ref-${refs.length}`, name: match[0], section: match[1] || match[0] });
     }
   }

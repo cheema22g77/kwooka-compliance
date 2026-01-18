@@ -285,7 +285,7 @@ export default function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
                     <YAxis stroke="#9ca3af" fontSize={12} domain={[0, 100]} />
-                    <Tooltip formatter={(value: number) => [`${value}%`, 'Score']} />
+                    <Tooltip formatter={(value) => [`${value}%`, "Score"]} />
                     <Area type="monotone" dataKey="score" stroke="#f97316" fill="#f9731620" />
                   </AreaChart>
                 </ResponsiveContainer>
