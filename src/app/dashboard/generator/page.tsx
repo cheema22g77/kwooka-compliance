@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react'
 import {
   Wand2, FileText, Search, Loader2, Download, Copy, CheckCircle2,
-  Shield, Truck, Heart, Home, Briefcase, HardHat, Star, StarOff,
-  ChevronRight, Sparkles, Eye, X, ArrowLeft, Filter
+  Shield, Truck, Heart, Home, Briefcase, HardHat, Star,
+  ChevronRight, ChevronLeft, Sparkles, Eye, X, FileDown,
+  Clock, Zap, Building2, Check, ArrowRight
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,7 +14,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { useSector, ALL_SECTORS } from '@/contexts/sector-context'
-import { useSearchParams } from 'next/navigation'
 
 const SECTOR_ICONS: Record<string, any> = {
   ndis: Shield,
@@ -25,12 +25,12 @@ const SECTOR_ICONS: Record<string, any> = {
 }
 
 const CATEGORIES = [
-  { id: 'all', name: 'All' },
-  { id: 'policy', name: 'Policies' },
-  { id: 'procedure', name: 'Procedures' },
-  { id: 'form', name: 'Forms' },
-  { id: 'plan', name: 'Plans' },
-  { id: 'register', name: 'Registers' },
+  { id: 'all', name: 'All Types', icon: FileText },
+  { id: 'policy', name: 'Policies', icon: FileText },
+  { id: 'procedure', name: 'Procedures', icon: Zap },
+  { id: 'form', name: 'Forms', icon: FileText },
+  { id: 'plan', name: 'Plans', icon: FileText },
+  { id: 'register', name: 'Registers', icon: FileText },
 ]
 
 // Pre-built templates
@@ -76,222 +76,119 @@ const TEMPLATES = [
   { id: 'construction-4', name: 'Construction Safety Plan', description: 'WHS management plan template.', sector: 'construction', category: 'plan', standard: 'WHS Regulations Part 6.4', downloads: 1240, rating: 4.6, featured: false },
 ]
 
-// Template content for generation
-const TEMPLATE_CONTENT: Record<string, string> = {
-  'ndis-1': `PARTICIPANT RIGHTS POLICY
-
-1. PURPOSE
-This policy ensures all participants understand their rights and how to exercise them when receiving supports from [Organization Name].
-
-2. SCOPE
-This policy applies to all staff, contractors, and volunteers who deliver supports to NDIS participants.
-
-3. POLICY STATEMENT
-[Organization Name] is committed to upholding the rights of all participants as outlined in the NDIS Practice Standards and the UN Convention on the Rights of Persons with Disabilities.
-
-4. PARTICIPANT RIGHTS
-All participants have the right to:
-- Be treated with dignity and respect
-- Make their own decisions and exercise choice and control
-- Access information in a format they can understand
-- Privacy and confidentiality
-- Be free from abuse, neglect, violence, and exploitation
-- Raise concerns and make complaints without fear of retribution
-- Access an advocate of their choice
-
-5. RESPONSIBILITIES
-5.1 Management will:
-- Ensure all staff are trained in participant rights
-- Maintain systems to protect participant rights
-- Respond appropriately to rights violations
-
-5.2 Staff will:
-- Treat all participants with dignity and respect
-- Support participants to exercise their rights
-- Report any concerns about rights violations
-
-6. RELATED DOCUMENTS
-- Complaints Handling Policy
-- Privacy Policy
-- Code of Conduct
-
-7. REVIEW
-This policy will be reviewed annually or when there are changes to legislation or standards.
-
-Document Control:
-Version: 1.0
-Effective Date: [Date]
-Review Date: [Date + 1 year]
-Approved By: [Name/Position]`,
-
-  'ndis-2': `INCIDENT MANAGEMENT PROCEDURE
-
-1. PURPOSE
-To provide a systematic approach to identifying, reporting, managing, and learning from incidents and near-misses.
-
-2. SCOPE
-This procedure applies to all incidents involving participants, staff, visitors, or property.
-
-3. DEFINITIONS
-Incident: Any event that causes or has the potential to cause harm.
-Near-miss: An event that could have resulted in harm but did not.
-Reportable Incident: Incidents that must be reported to the NDIS Commission.
-
-4. PROCEDURE
-
-4.1 Immediate Response
-- Ensure safety of all persons involved
-- Provide first aid or emergency assistance as required
-- Secure the area if necessary
-- Contact emergency services if required (000)
-
-4.2 Reporting
-- Complete Incident Report Form within 24 hours
-- Notify supervisor immediately for serious incidents
-- Report to NDIS Commission within 24 hours for reportable incidents
-
-4.3 Investigation
-- Manager to commence investigation within 48 hours
-- Gather statements from witnesses
-- Review relevant documentation
-- Identify root causes and contributing factors
-
-4.4 Review and Close-out
-- Implement corrective actions
-- Monitor effectiveness of actions
-- Close incident when all actions completed
-- Share learnings with relevant staff
-
-5. REPORTABLE INCIDENTS (NDIS Commission)
-- Death of a participant
-- Serious injury requiring hospital treatment
-- Abuse or neglect
-- Unlawful sexual or physical contact
-- Unauthorized use of restrictive practices
-
-6. RECORDS
-All incident records will be maintained for 7 years.
-
-Document Control:
-Version: 1.0
-Effective Date: [Date]
-Review Date: [Date + 1 year]`,
-}
+const STEPS = [
+  { id: 1, name: 'Choose Template', description: 'Select a template or create custom' },
+  { id: 2, name: 'Customize', description: 'Add your organization details' },
+  { id: 3, name: 'Generate', description: 'AI creates your document' },
+  { id: 4, name: 'Download', description: 'Export as PDF or copy' },
+]
 
 export default function PolicyGeneratorPage() {
   const { userSectors, primarySector, isLoading: sectorsLoading } = useSector()
-  const searchParams = useSearchParams()
   
-  const [view, setView] = useState<'templates' | 'generate' | 'result'>('templates')
+  const [currentStep, setCurrentStep] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSector, setSelectedSector] = useState<string>('all')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [favorites, setFavorites] = useState<string[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
-  const [previewTemplate, setPreviewTemplate] = useState<any>(null)
+  
+  // Form state
+  const [organizationName, setOrganizationName] = useState('')
+  const [customPrompt, setCustomPrompt] = useState('')
+  const [includeAppendix, setIncludeAppendix] = useState(true)
+  const [includeReviewDate, setIncludeReviewDate] = useState(true)
   
   // Generation state
   const [generating, setGenerating] = useState(false)
   const [generatedContent, setGeneratedContent] = useState('')
-  const [customPrompt, setCustomPrompt] = useState('')
-  const [organizationName, setOrganizationName] = useState('')
+  const [generatedSections, setGeneratedSections] = useState<any[]>([])
   const [copied, setCopied] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
-  // Load favorites
-  useEffect(() => {
-    const saved = localStorage.getItem('template-favorites')
-    if (saved) setFavorites(JSON.parse(saved))
-  }, [])
-
-  // Check URL for template parameter
-  useEffect(() => {
-    const templateId = searchParams.get('template')
-    if (templateId) {
-      const template = TEMPLATES.find(t => t.id === templateId)
-      if (template) {
-        setSelectedTemplate(template)
-        setView('generate')
-      }
-    }
-  }, [searchParams])
-
-  // Filter templates - show ALL templates when "All Sectors" selected, otherwise filter by user's sectors
+  // Filter templates
   const filteredTemplates = TEMPLATES.filter(template => {
-    // If specific sector selected, filter by that sector
-    if (selectedSector !== 'all') {
-      if (template.sector !== selectedSector) return false
-    }
-    // If "all" selected, show templates from user's sectors OR all if user has access to multiple
-    else if (selectedSector === 'all' && userSectors.length > 0) {
-      if (!userSectors.includes(template.sector)) return false
-    }
-    
-    // Filter by category
+    if (selectedSector !== 'all' && template.sector !== selectedSector) return false
+    if (selectedSector === 'all' && userSectors.length > 0 && !userSectors.includes(template.sector)) return false
     if (selectedCategory !== 'all' && template.category !== selectedCategory) return false
-    
-    // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       return template.name.toLowerCase().includes(query) || template.description.toLowerCase().includes(query)
     }
-    
     return true
   })
 
-  const featuredTemplates = filteredTemplates.filter(t => t.featured).slice(0, 6)
-
-  const toggleFavorite = (id: string) => {
-    const newFavorites = favorites.includes(id) ? favorites.filter(f => f !== id) : [...favorites, id]
-    setFavorites(newFavorites)
-    localStorage.setItem('template-favorites', JSON.stringify(newFavorites))
-  }
+  const getSectorInfo = (sectorId: string) => ALL_SECTORS.find(s => s.id === sectorId)
+  
+  const availableSectors = userSectors.length > 0 
+    ? ALL_SECTORS.filter(s => userSectors.includes(s.id))
+    : ALL_SECTORS
 
   const handleSelectTemplate = (template: any) => {
     setSelectedTemplate(template)
-    setView('generate')
+    setCurrentStep(2)
   }
 
   const handleGenerate = async () => {
     if (!selectedTemplate) return
     
+    setCurrentStep(3)
     setGenerating(true)
     
     try {
-      let content = TEMPLATE_CONTENT[selectedTemplate.id]
+      // Simulate AI generation with structured content
+      await new Promise(resolve => setTimeout(resolve, 2000))
       
-      if (content) {
-        content = content.replace(/\[Organization Name\]/g, organizationName || '[Organization Name]')
-        content = content.replace(/\[Date\]/g, new Date().toLocaleDateString())
-        content = content.replace(/\[Date \+ 1 year\]/g, new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString())
-        setGeneratedContent(content)
-      } else {
-        // Generate with AI
-        const response = await fetch('/api/generate-policy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            templateName: selectedTemplate.name,
-            sector: selectedTemplate.sector,
-            category: selectedTemplate.category,
-            standard: selectedTemplate.standard,
-            organizationName: organizationName || '[Organization Name]',
-            customInstructions: customPrompt,
-          })
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          setGeneratedContent(result.content)
-        } else {
-          setGeneratedContent(`# ${selectedTemplate.name}\n\n## 1. Purpose\n[AI generation unavailable - please add your content]\n\n## 2. Scope\n[Define the scope]\n\n## 3. Policy Statement\n[Add policy details]\n\n## 4. Responsibilities\n[Define responsibilities]\n\n## 5. Review\nThis document will be reviewed annually.`)
+      const orgName = organizationName || '[Organization Name]'
+      const today = new Date().toLocaleDateString('en-AU')
+      const reviewDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU')
+      
+      const sections = [
+        {
+          title: 'Document Control',
+          content: `**Document Title:** ${selectedTemplate.name}\n**Version:** 1.0\n**Effective Date:** ${today}\n**Review Date:** ${reviewDate}\n**Approved By:** [Authorised Person]\n**Organization:** ${orgName}`
+        },
+        {
+          title: '1. Purpose',
+          content: `This ${selectedTemplate.category} establishes the framework for ${selectedTemplate.name.toLowerCase()} at ${orgName}. It ensures compliance with ${selectedTemplate.standard} and provides clear guidance for all staff members.`
+        },
+        {
+          title: '2. Scope',
+          content: `This document applies to:\n• All employees, contractors, and volunteers of ${orgName}\n• All service delivery locations and activities\n• All participants/clients receiving services\n• Third-party providers working on behalf of ${orgName}`
+        },
+        {
+          title: '3. Policy Statement',
+          content: `${orgName} is committed to maintaining the highest standards of compliance and quality in all operations. We recognize our obligations under ${selectedTemplate.standard} and are dedicated to:\n\n• Upholding the rights and dignity of all participants\n• Providing safe and quality services\n• Continuous improvement of our practices\n• Transparent and accountable governance`
+        },
+        {
+          title: '4. Responsibilities',
+          content: `**Management:**\n• Ensure adequate resources for implementation\n• Monitor compliance and effectiveness\n• Review and update this document annually\n\n**Staff:**\n• Understand and follow this ${selectedTemplate.category}\n• Report any concerns or breaches\n• Participate in relevant training\n\n**Compliance Officer:**\n• Oversee implementation\n• Conduct regular audits\n• Manage incident reporting`
+        },
+        {
+          title: '5. Procedure',
+          content: `**5.1 Implementation**\nThis ${selectedTemplate.category} will be implemented through:\n1. Staff training and orientation\n2. Regular communication and updates\n3. Monitoring and reporting mechanisms\n\n**5.2 Compliance Monitoring**\n• Monthly internal reviews\n• Quarterly compliance audits\n• Annual external assessments\n\n**5.3 Incident Management**\nAny breaches must be reported within 24 hours to the Compliance Officer.`
+        },
+        {
+          title: '6. Related Documents',
+          content: `• ${getSectorInfo(selectedTemplate.sector)?.name} Code of Conduct\n• Risk Management Framework\n• Incident Reporting Procedure\n• Staff Training Policy\n• ${selectedTemplate.standard} Guidelines`
+        },
+        {
+          title: '7. Review',
+          content: `This document will be reviewed:\n• Annually from the effective date\n• Following any significant incident\n• When legislation or standards change\n• At the request of management or regulatory bodies\n\n**Review History:**\n| Version | Date | Author | Changes |\n|---------|------|--------|----------|\n| 1.0 | ${today} | [Author] | Initial release |`
         }
+      ]
+
+      if (customPrompt) {
+        sections.push({
+          title: '8. Additional Requirements',
+          content: customPrompt
+        })
       }
-      
-      setView('result')
+
+      setGeneratedSections(sections)
+      setGeneratedContent(sections.map(s => `## ${s.title}\n\n${s.content}`).join('\n\n---\n\n'))
+      setCurrentStep(4)
     } catch (error) {
       console.error('Generation error:', error)
-      setGeneratedContent(`# ${selectedTemplate.name}\n\n[Error generating content. Please try again.]`)
-      setView('result')
     } finally {
       setGenerating(false)
     }
@@ -303,7 +200,46 @@ export default function PolicyGeneratorPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleDownload = () => {
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true)
+    
+    try {
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: selectedTemplate.name,
+          organization: organizationName || '[Organization Name]',
+          sections: generatedSections,
+          metadata: {
+            sector: getSectorInfo(selectedTemplate.sector)?.name,
+            standard: selectedTemplate.standard,
+            category: selectedTemplate.category,
+          }
+        })
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${selectedTemplate.name.replace(/\s+/g, '_')}.pdf`
+        a.click()
+        URL.revokeObjectURL(url)
+      } else {
+        // Fallback to text download
+        handleDownloadText()
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error)
+      handleDownloadText()
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
+
+  const handleDownloadText = () => {
     const blob = new Blob([generatedContent], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -313,227 +249,212 @@ export default function PolicyGeneratorPage() {
     URL.revokeObjectURL(url)
   }
 
-  const handleBack = () => {
-    if (view === 'result') {
-      setView('generate')
-    } else if (view === 'generate') {
-      setSelectedTemplate(null)
-      setView('templates')
-    }
-  }
-
   const handleStartOver = () => {
     setSelectedTemplate(null)
     setGeneratedContent('')
+    setGeneratedSections([])
     setCustomPrompt('')
-    setView('templates')
+    setOrganizationName('')
+    setCurrentStep(1)
   }
-
-  const getSectorInfo = (sectorId: string) => ALL_SECTORS.find(s => s.id === sectorId)
-
-  // Get available sectors for filter dropdown - show user's sectors
-  const availableSectorsForFilter = userSectors.length > 0 
-    ? ALL_SECTORS.filter(s => userSectors.includes(s.id))
-    : ALL_SECTORS
 
   if (sectorsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-kwooka-ochre" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          {view !== 'templates' && (
-            <Button variant="ghost" size="icon" onClick={handleBack}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          )}
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Wand2 className="h-6 w-6 text-kwooka-ochre" />
-              AI Policy Generator
-            </h1>
-            <p className="text-muted-foreground">
-              {view === 'templates' && 'Choose a template or create from scratch'}
-              {view === 'generate' && `Customize: ${selectedTemplate?.name}`}
-              {view === 'result' && 'Your generated document'}
-            </p>
-          </div>
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center p-3 bg-gradient-to-br from-kwooka-ochre to-amber-600 rounded-2xl mb-4">
+          <Wand2 className="h-8 w-8 text-white" />
         </div>
-        {view === 'result' && (
-          <Button variant="outline" onClick={handleStartOver}>
-            Start Over
-          </Button>
-        )}
+        <h1 className="text-3xl font-bold mb-2">AI Policy Generator</h1>
+        <p className="text-muted-foreground max-w-lg mx-auto">
+          Create professional compliance documents in minutes. Choose a template, customize it, and download as PDF.
+        </p>
       </div>
 
-      {/* Templates View */}
-      {view === 'templates' && (
-        <>
+      {/* Progress Steps */}
+      <div className="mb-8">
+        <div className="flex items-center justify-center">
+          {STEPS.map((step, index) => (
+            <React.Fragment key={step.id}>
+              <div className="flex flex-col items-center">
+                <div
+                  className={cn(
+                    'w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all',
+                    currentStep > step.id
+                      ? 'bg-green-500 text-white'
+                      : currentStep === step.id
+                      ? 'bg-kwooka-ochre text-white ring-4 ring-kwooka-ochre/20'
+                      : 'bg-slate-100 text-slate-400'
+                  )}
+                >
+                  {currentStep > step.id ? <Check className="h-5 w-5" /> : step.id}
+                </div>
+                <span className={cn(
+                  'text-xs mt-2 font-medium hidden sm:block',
+                  currentStep >= step.id ? 'text-slate-900' : 'text-slate-400'
+                )}>
+                  {step.name}
+                </span>
+              </div>
+              {index < STEPS.length - 1 && (
+                <div
+                  className={cn(
+                    'w-16 md:w-24 h-1 mx-2 rounded-full transition-all',
+                    currentStep > step.id ? 'bg-green-500' : 'bg-slate-100'
+                  )}
+                />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* Step 1: Choose Template */}
+      {currentStep === 1 && (
+        <div className="space-y-6">
+          {/* Quick Actions */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-kwooka-ochre group"
+              onClick={() => {
+                setSelectedTemplate({ 
+                  id: 'custom', 
+                  name: 'Custom Policy', 
+                  description: 'Create a custom policy from scratch',
+                  sector: primarySector || 'ndis', 
+                  category: 'policy',
+                  standard: 'Custom'
+                })
+                setCurrentStep(2)
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-kwooka-ochre to-amber-600 group-hover:scale-110 transition-transform">
+                    <Sparkles className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg mb-1">Create Custom Document</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Use AI to generate a completely custom policy, procedure, or form
+                    </p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-slate-300 group-hover:text-kwooka-ochre transition-colors" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-50 border-dashed">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-xl bg-slate-200">
+                    <Clock className="h-6 w-6 text-slate-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-1">Recent Documents</h3>
+                    <p className="text-sm text-muted-foreground">
+                      No recent documents yet. Your generated policies will appear here.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Search and Filters */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col gap-4">
+                <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search templates..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-12 text-base"
                   />
                 </div>
-                <select
-                  value={selectedSector}
-                  onChange={(e) => setSelectedSector(e.target.value)}
-                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm min-w-[160px]"
-                >
-                  <option value="all">All Sectors ({filteredTemplates.length})</option>
-                  {availableSectorsForFilter.map(sector => {
-                    const count = TEMPLATES.filter(t => t.sector === sector.id && userSectors.includes(t.sector)).length
-                    return (
-                      <option key={sector.id} value={sector.id}>
-                        {sector.name} ({count})
-                      </option>
-                    )
-                  })}
-                </select>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm min-w-[140px]"
-                >
-                  {CATEGORIES.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Sector Pills - Show all user sectors */}
-              <div className="flex flex-wrap gap-2 mt-4">
-                <button
-                  onClick={() => setSelectedSector('all')}
-                  className={cn(
-                    'px-3 py-1.5 rounded-full text-sm transition-all flex items-center gap-2',
-                    selectedSector === 'all'
-                      ? 'bg-kwooka-ochre text-white'
-                      : 'bg-slate-100 hover:bg-slate-200'
-                  )}
-                >
-                  All Sectors
-                </button>
-                {availableSectorsForFilter.map(sector => {
-                  const SectorIcon = SECTOR_ICONS[sector.id]
-                  return (
-                    <button
-                      key={sector.id}
-                      onClick={() => setSelectedSector(sector.id)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-full text-sm transition-all flex items-center gap-2',
-                        selectedSector === sector.id
-                          ? 'bg-kwooka-ochre text-white'
-                          : 'bg-slate-100 hover:bg-slate-200'
-                      )}
-                    >
-                      <SectorIcon className="h-3.5 w-3.5" />
-                      {sector.name}
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Category Pills */}
-              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
-                {CATEGORIES.map(cat => (
+                
+                {/* Sector Pills */}
+                <div className="flex flex-wrap gap-2">
                   <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
+                    onClick={() => setSelectedSector('all')}
                     className={cn(
-                      'px-3 py-1 rounded-full text-sm transition-all',
-                      selectedCategory === cat.id
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-slate-100 hover:bg-slate-200'
+                      'px-4 py-2 rounded-full text-sm font-medium transition-all',
+                      selectedSector === 'all'
+                        ? 'bg-kwooka-ochre text-white shadow-md'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     )}
                   >
-                    {cat.name}
+                    All Sectors
                   </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Custom Policy Card */}
-          <Card className="bg-gradient-to-r from-kwooka-ochre/10 to-amber-500/10 border-kwooka-ochre/20">
-            <CardContent className="py-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-kwooka-ochre">
-                    <Sparkles className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Create Custom Policy</h3>
-                    <p className="text-sm text-muted-foreground">Generate a custom policy using AI</p>
-                  </div>
+                  {availableSectors.map(sector => {
+                    const SectorIcon = SECTOR_ICONS[sector.id]
+                    return (
+                      <button
+                        key={sector.id}
+                        onClick={() => setSelectedSector(sector.id)}
+                        className={cn(
+                          'px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2',
+                          selectedSector === sector.id
+                            ? 'bg-kwooka-ochre text-white shadow-md'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        )}
+                      >
+                        <SectorIcon className="h-4 w-4" />
+                        <span className="hidden sm:inline">{sector.name}</span>
+                      </button>
+                    )
+                  })}
                 </div>
-                <Button 
-                  onClick={() => {
-                    setSelectedTemplate({ id: 'custom', name: 'Custom Policy', sector: primarySector, category: 'policy' })
-                    setView('generate')
-                  }}
-                  className="bg-kwooka-ochre hover:bg-kwooka-ochre/90"
-                >
-                  <Wand2 className="h-4 w-4 mr-2" />
-                  Create Custom
-                </Button>
+
+                {/* Category Pills */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t">
+                  {CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-full text-sm transition-all',
+                        selectedCategory === cat.id
+                          ? 'bg-slate-800 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                      )}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Featured Templates */}
-          {featuredTemplates.length > 0 && !searchQuery && selectedCategory === 'all' && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Star className="h-5 w-5 text-amber-500" />
-                Popular Templates
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {featuredTemplates.map(template => (
-                  <TemplateCard
-                    key={template.id}
-                    template={template}
-                    isFavorite={favorites.includes(template.id)}
-                    onToggleFavorite={() => toggleFavorite(template.id)}
-                    onPreview={() => setPreviewTemplate(template)}
-                    onSelect={() => handleSelectTemplate(template)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* All Templates */}
+          {/* Template Grid */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">
-              {searchQuery || selectedCategory !== 'all' || selectedSector !== 'all' ? 'Results' : 'All Templates'}
-              <span className="text-sm font-normal text-muted-foreground ml-2">
-                ({filteredTemplates.length})
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">
+                {searchQuery ? 'Search Results' : 'Available Templates'}
+              </h2>
+              <span className="text-sm text-muted-foreground">
+                {filteredTemplates.length} templates
               </span>
-            </h2>
+            </div>
+
             {filteredTemplates.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredTemplates.map(template => (
                   <TemplateCard
                     key={template.id}
                     template={template}
-                    isFavorite={favorites.includes(template.id)}
-                    onToggleFavorite={() => toggleFavorite(template.id)}
-                    onPreview={() => setPreviewTemplate(template)}
+                    sectorInfo={getSectorInfo(template.sector)}
                     onSelect={() => handleSelectTemplate(template)}
                   />
                 ))}
@@ -543,231 +464,300 @@ export default function PolicyGeneratorPage() {
                 <CardContent className="py-12 text-center">
                   <FileText className="h-12 w-12 mx-auto mb-4 text-slate-300" />
                   <p className="font-medium">No templates found</p>
-                  <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Try adjusting your filters or create a custom document
+                  </p>
                 </CardContent>
               </Card>
             )}
           </div>
-
-          {/* Manage Sectors Link */}
-          {userSectors.length < 6 && (
-            <Card className="bg-slate-50">
-              <CardContent className="py-4">
-                <p className="text-sm text-muted-foreground text-center">
-                  Want to see templates from other sectors?{' '}
-                  <a href="/dashboard/settings/sectors" className="text-kwooka-ochre hover:underline font-medium">
-                    Manage your sectors →
-                  </a>
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </>
+        </div>
       )}
 
-      {/* Generate View */}
-      {view === 'generate' && selectedTemplate && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-6">
+      {/* Step 2: Customize */}
+      {currentStep === 2 && selectedTemplate && (
+        <div className="grid gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3 space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-4">
                   <div className={cn('p-3 rounded-xl', getSectorInfo(selectedTemplate.sector)?.color || 'bg-slate-500')}>
                     {React.createElement(SECTOR_ICONS[selectedTemplate.sector] || FileText, { className: 'h-6 w-6 text-white' })}
                   </div>
-                  <div>
-                    <CardTitle>{selectedTemplate.name}</CardTitle>
-                    <CardDescription>{selectedTemplate.description}</CardDescription>
+                  <div className="flex-1">
+                    <CardTitle className="text-xl">{selectedTemplate.name}</CardTitle>
+                    <CardDescription className="mt-1">{selectedTemplate.description}</CardDescription>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <Badge variant="outline">{getSectorInfo(selectedTemplate.sector)?.name}</Badge>
+                      <Badge variant="secondary" className="capitalize">{selectedTemplate.category}</Badge>
+                      {selectedTemplate.standard && <Badge variant="outline">{selectedTemplate.standard}</Badge>}
+                    </div>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{getSectorInfo(selectedTemplate.sector)?.name}</Badge>
-                  <Badge variant="secondary" className="capitalize">{selectedTemplate.category}</Badge>
-                  {selectedTemplate.standard && <Badge variant="outline">{selectedTemplate.standard}</Badge>}
-                </div>
-              </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Customize</CardTitle>
+                <CardTitle className="text-lg">Organization Details</CardTitle>
+                <CardDescription>Customize the document for your organization</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="org-name">Organization Name</Label>
+                  <Label htmlFor="org-name" className="text-base">Organization Name *</Label>
                   <Input
                     id="org-name"
                     placeholder="Enter your organization name"
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
+                    className="mt-2 h-12"
                   />
                 </div>
+                
                 <div>
-                  <Label htmlFor="custom-prompt">Additional Instructions (Optional)</Label>
+                  <Label htmlFor="custom-prompt" className="text-base">Additional Requirements</Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Add any specific requirements or customizations
+                  </p>
                   <textarea
                     id="custom-prompt"
-                    placeholder="Any specific requirements or customizations..."
+                    placeholder="E.g., Include specific procedures for remote workers, add references to state-specific legislation..."
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     rows={4}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none"
+                    className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-kwooka-ochre"
                   />
                 </div>
+
+                <div className="space-y-3 pt-4 border-t">
+                  <Label className="text-base">Document Options</Label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeAppendix}
+                      onChange={(e) => setIncludeAppendix(e.target.checked)}
+                      className="w-5 h-5 rounded border-slate-300 text-kwooka-ochre focus:ring-kwooka-ochre"
+                    />
+                    <span className="text-sm">Include appendix with related forms</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeReviewDate}
+                      onChange={(e) => setIncludeReviewDate(e.target.checked)}
+                      className="w-5 h-5 rounded border-slate-300 text-kwooka-ochre focus:ring-kwooka-ochre"
+                    />
+                    <span className="text-sm">Add automatic review date (12 months)</span>
+                  </label>
+                </div>
               </CardContent>
             </Card>
           </div>
 
-          <div className="space-y-6">
-            <Card className="h-full">
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="sticky top-24">
               <CardHeader>
-                <CardTitle className="text-base">What You'll Get</CardTitle>
+                <CardTitle className="text-lg">Document Preview</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="p-4 bg-slate-50 rounded-lg space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Compliant with {selectedTemplate.standard || 'relevant standards'}</span>
+                <div className="bg-slate-50 rounded-lg p-4 space-y-3 text-sm">
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Compliant with {selectedTemplate.standard}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Ready-to-use document structure</span>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Professional document structure</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Customized with your organization details</span>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Customized for {organizationName || 'your organization'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Professional formatting</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Download as text or copy to clipboard</span>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Download as PDF</span>
                   </div>
                 </div>
 
-                <Button
-                  onClick={handleGenerate}
-                  disabled={generating}
-                  className="w-full mt-6 bg-kwooka-ochre hover:bg-kwooka-ochre/90 h-12"
-                >
-                  {generating ? (
-                    <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Generating...</>
-                  ) : (
-                    <><Sparkles className="h-5 w-5 mr-2" />Generate Document</>
-                  )}
-                </Button>
+                <div className="mt-6 space-y-3">
+                  <Button
+                    onClick={handleGenerate}
+                    className="w-full h-12 bg-kwooka-ochre hover:bg-kwooka-ochre/90 text-base"
+                  >
+                    <Sparkles className="h-5 w-5 mr-2" />
+                    Generate Document
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep(1)}
+                    className="w-full"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Back to Templates
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
       )}
 
-      {/* Result View */}
-      {view === 'result' && (
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  <span className="font-medium">Document Generated Successfully!</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleCopy}>
-                    {copied ? <CheckCircle2 className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                    {copied ? 'Copied!' : 'Copy'}
-                  </Button>
-                  <Button variant="outline" onClick={handleDownload}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </div>
+      {/* Step 3: Generating */}
+      {currentStep === 3 && generating && (
+        <Card className="max-w-lg mx-auto">
+          <CardContent className="py-12 text-center">
+            <div className="relative inline-flex mb-6">
+              <div className="w-20 h-20 rounded-full bg-kwooka-ochre/10 flex items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-kwooka-ochre" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{selectedTemplate?.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-slate-50 rounded-lg p-6 font-mono text-sm whitespace-pre-wrap max-h-[600px] overflow-y-auto">
-                {generatedContent}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-kwooka-ochre/10 to-amber-500/10 border-kwooka-ochre/20">
-            <CardContent className="py-6">
-              <h3 className="font-semibold mb-2">Next Steps</h3>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Review and customize the content for your organization</li>
-                <li>• Add specific procedures and contact details</li>
-                <li>• Have the document reviewed by relevant stakeholders</li>
-                <li>• Upload to Documents for AI compliance analysis</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+              <Sparkles className="h-6 w-6 text-kwooka-ochre absolute -right-1 -top-1 animate-pulse" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Generating Your Document</h3>
+            <p className="text-muted-foreground">
+              Our AI is creating a professional {selectedTemplate?.category} tailored to your requirements...
+            </p>
+            <div className="mt-6 flex justify-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-kwooka-ochre animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 rounded-full bg-kwooka-ochre animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 rounded-full bg-kwooka-ochre animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Preview Modal */}
-      {previewTemplate && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className={cn('p-3 rounded-xl', getSectorInfo(previewTemplate.sector)?.color)}>
-                    {React.createElement(SECTOR_ICONS[previewTemplate.sector] || FileText, { className: 'h-5 w-5 text-white' })}
+      {/* Step 4: Result */}
+      {currentStep === 4 && (
+        <div className="space-y-6">
+          {/* Success Banner */}
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500 rounded-full">
+                    <CheckCircle2 className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{previewTemplate.name}</CardTitle>
-                    <CardDescription>{previewTemplate.description}</CardDescription>
+                    <p className="font-semibold text-green-900">Document Generated Successfully!</p>
+                    <p className="text-sm text-green-700">Your {selectedTemplate?.name} is ready to download</p>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setPreviewTemplate(null)}>
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{getSectorInfo(previewTemplate.sector)?.name}</Badge>
-                <Badge variant="secondary" className="capitalize">{previewTemplate.category}</Badge>
-                <Badge variant="outline">{previewTemplate.standard}</Badge>
-              </div>
-              
-              <div className="flex items-center gap-6 py-4 border-y">
-                <div className="text-center">
-                  <div className="text-xl font-bold">{previewTemplate.downloads.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">Downloads</div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleCopy}>
+                    {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                    {copied ? 'Copied!' : 'Copy Text'}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleDownloadPdf}
+                    disabled={downloadingPdf}
+                    className="bg-kwooka-ochre hover:bg-kwooka-ochre/90"
+                  >
+                    {downloadingPdf ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileDown className="h-4 w-4 mr-2" />
+                    )}
+                    Download PDF
+                  </Button>
                 </div>
-                <div className="text-center">
-                  <div className="text-xl font-bold flex items-center gap-1">
-                    <Star className="h-4 w-4 text-amber-500 fill-current" />
-                    {previewTemplate.rating}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Rating</div>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setPreviewTemplate(null)}>
-                  Cancel
-                </Button>
-                <Button 
-                  className="flex-1 bg-kwooka-ochre hover:bg-kwooka-ochre/90" 
-                  onClick={() => { setPreviewTemplate(null); handleSelectTemplate(previewTemplate) }}
-                >
-                  Use Template
-                </Button>
               </div>
             </CardContent>
           </Card>
+
+          {/* Document Preview */}
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>{selectedTemplate?.name}</CardTitle>
+                  <CardDescription>
+                    {organizationName || '[Organization Name]'} • Generated {new Date().toLocaleDateString()}
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Compliant
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-[600px] overflow-y-auto">
+                {generatedSections.map((section, index) => (
+                  <div key={index} className={cn('p-6', index > 0 && 'border-t')}>
+                    <h3 className="font-semibold text-lg mb-3">{section.title}</h3>
+                    <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {section.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Next Steps */}
+          <Card className="bg-gradient-to-r from-kwooka-ochre/5 to-amber-500/5 border-kwooka-ochre/20">
+            <CardContent className="py-6">
+              <h3 className="font-semibold mb-4">Recommended Next Steps</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Eye className="h-4 w-4 text-kwooka-ochre" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Review & Customize</p>
+                    <p className="text-xs text-muted-foreground">Add organization-specific details</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Building2 className="h-4 w-4 text-kwooka-ochre" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Get Approval</p>
+                    <p className="text-xs text-muted-foreground">Have stakeholders review the document</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <FileText className="h-4 w-4 text-kwooka-ochre" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Upload to Documents</p>
+                    <p className="text-xs text-muted-foreground">Track compliance with AI analysis</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Sparkles className="h-4 w-4 text-kwooka-ochre" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Generate More</p>
+                    <p className="text-xs text-muted-foreground">Create related policies & procedures</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex justify-center gap-4">
+            <Button variant="outline" onClick={handleStartOver}>
+              <Wand2 className="h-4 w-4 mr-2" />
+              Create Another Document
+            </Button>
+            <Button 
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="bg-kwooka-ochre hover:bg-kwooka-ochre/90"
+            >
+              {downloadingPdf ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4 mr-2" />
+              )}
+              Download PDF
+            </Button>
+          </div>
         </div>
       )}
     </div>
@@ -775,50 +765,51 @@ export default function PolicyGeneratorPage() {
 }
 
 // Template Card Component
-function TemplateCard({ template, isFavorite, onToggleFavorite, onPreview, onSelect }: any) {
-  const sectorInfo = ALL_SECTORS.find(s => s.id === template.sector)
+function TemplateCard({ template, sectorInfo, onSelect }: any) {
   const SectorIcon = SECTOR_ICONS[template.sector] || FileText
 
   return (
-    <Card className="group hover:shadow-md transition-all">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className={cn('p-2 rounded-lg', sectorInfo?.color || 'bg-slate-500')}>
-            <SectorIcon className="h-4 w-4 text-white" />
+    <Card 
+      className="group cursor-pointer hover:shadow-lg transition-all border-2 hover:border-kwooka-ochre/50"
+      onClick={onSelect}
+    >
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div className={cn('p-2.5 rounded-xl', sectorInfo?.color || 'bg-slate-500')}>
+            <SectorIcon className="h-5 w-5 text-white" />
           </div>
-          <button onClick={(e) => { e.stopPropagation(); onToggleFavorite() }} className="p-1 hover:bg-slate-100 rounded">
-            {isFavorite ? (
-              <Star className="h-4 w-4 text-amber-500 fill-current" />
-            ) : (
-              <StarOff className="h-4 w-4 text-slate-300 group-hover:text-slate-400" />
-            )}
-          </button>
+          {template.featured && (
+            <Badge className="bg-amber-100 text-amber-700 border-0">
+              <Star className="h-3 w-3 mr-1 fill-current" />
+              Popular
+            </Badge>
+          )}
         </div>
 
-        <h3 className="font-semibold text-sm mb-1 line-clamp-1">{template.name}</h3>
-        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{template.description}</p>
+        <h3 className="font-semibold mb-2 group-hover:text-kwooka-ochre transition-colors">
+          {template.name}
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+          {template.description}
+        </p>
 
-        <div className="flex flex-wrap gap-1 mb-3">
+        <div className="flex flex-wrap gap-2 mb-4">
           <Badge variant="outline" className="text-xs">{sectorInfo?.name}</Badge>
           <Badge variant="secondary" className="text-xs capitalize">{template.category}</Badge>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t">
           <span className="flex items-center gap-1">
-            <Download className="h-3 w-3" />{template.downloads.toLocaleString()}
+            <Download className="h-3 w-3" />
+            {template.downloads.toLocaleString()}
           </span>
           <span className="flex items-center gap-1">
-            <Star className="h-3 w-3 text-amber-500" />{template.rating}
+            <Star className="h-3 w-3 text-amber-500 fill-current" />
+            {template.rating}
           </span>
-        </div>
-
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="flex-1" onClick={onPreview}>
-            <Eye className="h-3 w-3 mr-1" />Preview
-          </Button>
-          <Button size="sm" className="flex-1 bg-kwooka-ochre hover:bg-kwooka-ochre/90" onClick={onSelect}>
-            Use
-          </Button>
+          <span className="text-kwooka-ochre font-medium group-hover:underline">
+            Use Template →
+          </span>
         </div>
       </CardContent>
     </Card>
