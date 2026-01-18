@@ -350,7 +350,7 @@ export default function PolicyGeneratorPage() {
       description: `Custom ${customDocCategory} for ${sectorInfo?.name}`,
       sector: customDocSector,
       category: customDocCategory,
-      standard: sectorInfo?.standards?.[0] || 'Custom'
+      standard: `${sectorInfo?.name} Compliance`
     })
     setViewMode('single')
     handleGenerateSingle()
@@ -888,7 +888,7 @@ ${'─'.repeat(60)}
                           </div>
                           <div>
                             <p className="font-medium text-sm">{sector.name}</p>
-                            <p className="text-xs text-muted-foreground">{sector.shortName}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-1">{sector.description}</p>
                           </div>
                           {customDocSector === sector.id && (
                             <Check className="h-5 w-5 text-kwooka-ochre ml-auto" />
