@@ -327,17 +327,6 @@ export default function LegislationPage() {
                 transport laws, and other Australian compliance frameworks. Get accurate answers
                 with citations to specific sections.
               </p>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-lg mx-auto">
-                <p className="text-sm text-amber-800">
-                  <strong>Setup Required:</strong> To use this feature, you need to:
-                </p>
-                <ol className="text-sm text-amber-700 mt-2 text-left list-decimal list-inside space-y-1">
-                  <li>Run the SQL schema in Supabase (enable pgvector)</li>
-                  <li>Add OPENAI_API_KEY to .env.local</li>
-                  <li>Add SUPABASE_SERVICE_ROLE_KEY to .env.local</li>
-                  <li>Ingest legislation documents via the admin panel</li>
-                </ol>
-              </div>
             </div>
           </CardContent>
         </Card>
