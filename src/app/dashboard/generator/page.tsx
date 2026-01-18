@@ -246,6 +246,13 @@ interface GeneratedDocument {
   sections?: Array<{ title: string; content: string }>
 }
 
+interface OrganizationDetails {
+  name: string
+  abn: string
+  authorisedBy: string
+  authorisedPosition: string
+}
+
 export default function PolicyGeneratorPage() {
   const { userSectors, primarySector, isLoading: sectorsLoading } = useSector()
   
@@ -258,8 +265,13 @@ export default function PolicyGeneratorPage() {
   const [selectedPack, setSelectedPack] = useState<string | null>(null)
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
   
-  // Form state
-  const [organizationName, setOrganizationName] = useState('')
+  // Organization details
+  const [orgDetails, setOrgDetails] = useState<OrganizationDetails>({
+    name: '',
+    abn: '',
+    authorisedBy: '',
+    authorisedPosition: ''
+  })
   const [customPrompt, setCustomPrompt] = useState('')
   
   // Single doc generation state
@@ -337,9 +349,13 @@ export default function PolicyGeneratorPage() {
     }
   }
 
+  const isFormValid = () => {
+    return orgDetails.name.trim() !== '' && orgDetails.authorisedBy.trim() !== ''
+  }
+
   // Generate single document
   const handleGenerateSingle = async () => {
-    if (!selectedTemplate) return
+    if (!selectedTemplate || !isFormValid()) return
     
     setCurrentStep(3)
     setGenerating(true)
@@ -347,11 +363,10 @@ export default function PolicyGeneratorPage() {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000))
       
-      const orgName = organizationName || '[Organization Name]'
       const today = new Date().toLocaleDateString('en-AU')
       const reviewDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU')
       
-      const sections = generateDocumentSections(selectedTemplate, orgName, today, reviewDate, customPrompt)
+      const sections = generateDocumentSections(selectedTemplate, orgDetails, today, reviewDate, customPrompt)
       
       setGeneratedSections(sections)
       setGeneratedContent(sections.map(s => `## ${s.title}\n\n${s.content}`).join('\n\n---\n\n'))
@@ -365,7 +380,7 @@ export default function PolicyGeneratorPage() {
 
   // Generate bulk documents
   const handleGenerateBulk = async () => {
-    if (!selectedPack || selectedDocuments.length === 0) return
+    if (!selectedPack || selectedDocuments.length === 0 || !isFormValid()) return
     
     setCurrentStep(3)
     setBulkGenerating(true)
@@ -383,7 +398,6 @@ export default function PolicyGeneratorPage() {
       status: 'pending' as GenerationStatus
     })))
     
-    const orgName = organizationName || '[Organization Name]'
     const today = new Date().toLocaleDateString('en-AU')
     const reviewDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU')
     
@@ -419,7 +433,7 @@ export default function PolicyGeneratorPage() {
           sector: selectedPack
         }
         
-        const sections = generateDocumentSections(template, orgName, today, reviewDate, '')
+        const sections = generateDocumentSections(template, orgDetails, today, reviewDate, '')
         
         // Update status to completed
         setGeneratedDocuments(prev => prev.map((doc, idx) => 
@@ -450,7 +464,7 @@ export default function PolicyGeneratorPage() {
   const handleDownloadSinglePdf = async () => {
     setDownloadingPdf(true)
     try {
-      const textContent = generateTextFile(selectedTemplate.name, organizationName, generatedSections)
+      const textContent = generateTextFile(selectedTemplate.name, orgDetails, generatedSections)
       downloadFile(textContent, `${selectedTemplate.name.replace(/\s+/g, '_')}.txt`, 'text/plain')
     } finally {
       setDownloadingPdf(false)
@@ -466,21 +480,23 @@ export default function PolicyGeneratorPage() {
       // For now, download as a combined text file
       // In production, use JSZip library for actual ZIP creation
       let combinedContent = `COMPLIANCE DOCUMENT PACK
-========================
-Organization: ${organizationName || '[Organization Name]'}
+${'═'.repeat(60)}
+Organization: ${orgDetails.name}
+ABN: ${orgDetails.abn || 'Not provided'}
+Authorised By: ${orgDetails.authorisedBy}${orgDetails.authorisedPosition ? `, ${orgDetails.authorisedPosition}` : ''}
 Sector: ${getSectorInfo(selectedPack!)?.name}
 Generated: ${new Date().toLocaleDateString('en-AU')}
 Total Documents: ${completedDocs.length}
 
-${'='.repeat(60)}
+${'═'.repeat(60)}
 
 `
       
       completedDocs.forEach((doc, index) => {
         combinedContent += `
-${'='.repeat(60)}
+${'═'.repeat(60)}
 DOCUMENT ${index + 1}: ${doc.name.toUpperCase()}
-${'='.repeat(60)}
+${'═'.repeat(60)}
 Category: ${doc.category}
 Standard: ${doc.standard}
 ${'─'.repeat(60)}
@@ -502,7 +518,7 @@ ${'─'.repeat(60)}
 
   const handleDownloadSingleDoc = (doc: GeneratedDocument) => {
     if (doc.sections) {
-      const content = generateTextFile(doc.name, organizationName, doc.sections)
+      const content = generateTextFile(doc.name, orgDetails, doc.sections)
       downloadFile(content, `${doc.name.replace(/\s+/g, '_')}.txt`, 'text/plain')
     }
   }
@@ -515,7 +531,7 @@ ${'─'.repeat(60)}
     setGeneratedSections([])
     setGeneratedDocuments([])
     setCustomPrompt('')
-    setOrganizationName('')
+    setOrgDetails({ name: '', abn: '', authorisedBy: '', authorisedPosition: '' })
     setCurrentStep(1)
     setViewMode('single')
   }
@@ -810,24 +826,63 @@ ${'─'.repeat(60)}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Organization Details</CardTitle>
+                <CardDescription>These details will appear on all generated documents</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="org-name" className="text-base">Organization Name *</Label>
-                  <Input
-                    id="org-name"
-                    placeholder="Enter your organization name"
-                    value={organizationName}
-                    onChange={(e) => setOrganizationName(e.target.value)}
-                    className="mt-2 h-12"
-                  />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="org-name" className="text-base">Organization Name *</Label>
+                    <Input
+                      id="org-name"
+                      placeholder="e.g., Kwooka Health Services Pty Ltd"
+                      value={orgDetails.name}
+                      onChange={(e) => setOrgDetails(prev => ({ ...prev, name: e.target.value }))}
+                      className="mt-2 h-12"
+                    />
+                  </div>
+                  
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="abn" className="text-base">ABN / ACN</Label>
+                    <Input
+                      id="abn"
+                      placeholder="e.g., 12 345 678 901"
+                      value={orgDetails.abn}
+                      onChange={(e) => setOrgDetails(prev => ({ ...prev, abn: e.target.value }))}
+                      className="mt-2 h-12"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Australian Business Number or Company Number
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="authorised-by" className="text-base">Authorised By *</Label>
+                    <Input
+                      id="authorised-by"
+                      placeholder="e.g., John Smith"
+                      value={orgDetails.authorisedBy}
+                      onChange={(e) => setOrgDetails(prev => ({ ...prev, authorisedBy: e.target.value }))}
+                      className="mt-2 h-12"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="authorised-position" className="text-base">Position / Title</Label>
+                    <Input
+                      id="authorised-position"
+                      placeholder="e.g., CEO, Director"
+                      value={orgDetails.authorisedPosition}
+                      onChange={(e) => setOrgDetails(prev => ({ ...prev, authorisedPosition: e.target.value }))}
+                      className="mt-2 h-12"
+                    />
+                  </div>
                 </div>
                 
-                <div>
+                <div className="pt-4 border-t">
                   <Label htmlFor="custom-prompt" className="text-base">Additional Requirements</Label>
                   <textarea
                     id="custom-prompt"
-                    placeholder="Add any specific requirements..."
+                    placeholder="Add any specific requirements or customizations..."
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     rows={3}
@@ -855,6 +910,10 @@ ${'─'.repeat(60)}
                   </div>
                   <div className="flex items-center gap-2 text-green-600">
                     <CheckCircle2 className="h-4 w-4" />
+                    <span>Includes document control</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
                     <span>Download as PDF</span>
                   </div>
                 </div>
@@ -862,6 +921,7 @@ ${'─'.repeat(60)}
                 <div className="space-y-3">
                   <Button
                     onClick={handleGenerateSingle}
+                    disabled={!isFormValid()}
                     className="w-full h-12 bg-kwooka-ochre hover:bg-kwooka-ochre/90 text-base"
                   >
                     <Sparkles className="h-5 w-5 mr-2" />
@@ -876,6 +936,13 @@ ${'─'.repeat(60)}
                     Back
                   </Button>
                 </div>
+
+                {!isFormValid() && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1 mt-3">
+                    <AlertCircle className="h-3 w-3" />
+                    Please fill in Organization Name and Authorised By
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -911,20 +978,61 @@ ${'─'.repeat(60)}
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-4">
-              {/* Organization Name */}
+              {/* Organization Details */}
               <Card>
-                <CardContent className="p-4">
-                  <Label htmlFor="org-name-pack" className="text-base font-medium">Organization Name *</Label>
-                  <Input
-                    id="org-name-pack"
-                    placeholder="Enter your organization name"
-                    value={organizationName}
-                    onChange={(e) => setOrganizationName(e.target.value)}
-                    className="mt-2 h-12"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    This will be used across all generated documents
-                  </p>
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Organization Details
+                  </CardTitle>
+                  <CardDescription>These details will appear on all generated documents</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <Label htmlFor="org-name-pack" className="text-sm font-medium">Organization Name *</Label>
+                      <Input
+                        id="org-name-pack"
+                        placeholder="e.g., Kwooka Health Services Pty Ltd"
+                        value={orgDetails.name}
+                        onChange={(e) => setOrgDetails(prev => ({ ...prev, name: e.target.value }))}
+                        className="mt-1.5 h-11"
+                      />
+                    </div>
+                    
+                    <div className="sm:col-span-2">
+                      <Label htmlFor="abn-pack" className="text-sm font-medium">ABN / ACN</Label>
+                      <Input
+                        id="abn-pack"
+                        placeholder="e.g., 12 345 678 901"
+                        value={orgDetails.abn}
+                        onChange={(e) => setOrgDetails(prev => ({ ...prev, abn: e.target.value }))}
+                        className="mt-1.5 h-11"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="authorised-by-pack" className="text-sm font-medium">Authorised By *</Label>
+                      <Input
+                        id="authorised-by-pack"
+                        placeholder="e.g., John Smith"
+                        value={orgDetails.authorisedBy}
+                        onChange={(e) => setOrgDetails(prev => ({ ...prev, authorisedBy: e.target.value }))}
+                        className="mt-1.5 h-11"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="authorised-position-pack" className="text-sm font-medium">Position / Title</Label>
+                      <Input
+                        id="authorised-position-pack"
+                        placeholder="e.g., CEO, Director"
+                        value={orgDetails.authorisedPosition}
+                        onChange={(e) => setOrgDetails(prev => ({ ...prev, authorisedPosition: e.target.value }))}
+                        className="mt-1.5 h-11"
+                      />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1035,7 +1143,7 @@ ${'─'.repeat(60)}
                     <div className="pt-4 border-t space-y-3">
                       <Button
                         onClick={handleGenerateBulk}
-                        disabled={selectedDocuments.length === 0 || !organizationName}
+                        disabled={selectedDocuments.length === 0 || !isFormValid()}
                         className="w-full h-12 bg-kwooka-ochre hover:bg-kwooka-ochre/90"
                       >
                         <Package className="h-5 w-5 mr-2" />
@@ -1051,10 +1159,10 @@ ${'─'.repeat(60)}
                       </Button>
                     </div>
 
-                    {!organizationName && (
+                    {!isFormValid() && (
                       <p className="text-xs text-amber-600 flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
-                        Enter organization name to continue
+                        Enter Organization Name and Authorised By
                       </p>
                     )}
                   </div>
@@ -1077,7 +1185,7 @@ ${'─'.repeat(60)}
             </div>
             <h3 className="text-xl font-semibold mb-2">Generating Your Document</h3>
             <p className="text-muted-foreground">
-              Creating a professional {selectedTemplate?.category}...
+              Creating a professional {selectedTemplate?.category} for {orgDetails.name || 'your organization'}...
             </p>
           </CardContent>
         </Card>
@@ -1168,7 +1276,9 @@ ${'─'.repeat(60)}
           <Card>
             <CardHeader className="border-b">
               <CardTitle>{selectedTemplate?.name}</CardTitle>
-              <CardDescription>{organizationName || '[Organization Name]'}</CardDescription>
+              <CardDescription>
+                {orgDetails.name}{orgDetails.abn ? ` • ABN: ${orgDetails.abn}` : ''}
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[500px] overflow-y-auto">
@@ -1207,7 +1317,9 @@ ${'─'.repeat(60)}
                     <p className="font-semibold text-green-900">
                       {completedCount} Documents Generated!
                     </p>
-                    <p className="text-sm text-green-700">{COMPLIANCE_PACKS[selectedPack!].name}</p>
+                    <p className="text-sm text-green-700">
+                      {orgDetails.name}{orgDetails.abn ? ` • ABN: ${orgDetails.abn}` : ''}
+                    </p>
                   </div>
                 </div>
                 <Button 
@@ -1271,11 +1383,17 @@ ${'─'.repeat(60)}
 // Helper function to generate document sections
 function generateDocumentSections(
   template: any, 
-  orgName: string, 
+  orgDetails: OrganizationDetails,
   today: string, 
   reviewDate: string,
   customPrompt: string
 ): Array<{ title: string; content: string }> {
+  const orgName = orgDetails.name || '[Organization Name]'
+  const abn = orgDetails.abn ? `\nABN: ${orgDetails.abn}` : ''
+  const authorised = orgDetails.authorisedBy 
+    ? `${orgDetails.authorisedBy}${orgDetails.authorisedPosition ? `, ${orgDetails.authorisedPosition}` : ''}`
+    : '[Authorised Person]'
+
   const sections = [
     {
       title: 'Document Control',
@@ -1283,8 +1401,9 @@ function generateDocumentSections(
 Version: 1.0
 Effective Date: ${today}
 Review Date: ${reviewDate}
-Approved By: [Authorised Person]
-Organization: ${orgName}`
+Approved By: ${authorised}
+
+Organization: ${orgName}${abn}`
     },
     {
       title: '1. Purpose',
@@ -1358,13 +1477,24 @@ Any breaches must be reported within 24 hours to the Compliance Officer.`
 
 Review History:
 Version | Date | Author | Changes
-1.0 | ${today} | [Author] | Initial release`
+1.0 | ${today} | ${authorised} | Initial release`
+    },
+    {
+      title: '8. Authorisation',
+      content: `This document has been reviewed and approved by:
+
+Name: ${authorised}
+Date: ${today}
+
+Signature: _________________________
+
+${orgName}${abn}`
     }
   ]
 
   if (customPrompt) {
-    sections.push({
-      title: '8. Additional Requirements',
+    sections.splice(8, 0, {
+      title: '9. Additional Requirements',
       content: customPrompt
     })
   }
@@ -1375,17 +1505,23 @@ Version | Date | Author | Changes
 // Helper function to generate text file content
 function generateTextFile(
   title: string,
-  organization: string,
+  orgDetails: OrganizationDetails,
   sections: Array<{ title: string; content: string }>
 ): string {
   const divider = '═'.repeat(60)
   const thinDivider = '─'.repeat(60)
+  const orgName = orgDetails.name || '[Organization Name]'
+  const abn = orgDetails.abn ? `\nABN: ${orgDetails.abn}` : ''
+  const authorised = orgDetails.authorisedBy 
+    ? `${orgDetails.authorisedBy}${orgDetails.authorisedPosition ? `, ${orgDetails.authorisedPosition}` : ''}`
+    : '[Authorised Person]'
   
   let content = `${divider}
 ${title.toUpperCase()}
 ${divider}
 
-Organization: ${organization || '[Organization Name]'}
+Organization: ${orgName}${abn}
+Authorised By: ${authorised}
 Generated: ${new Date().toLocaleDateString('en-AU')}
 
 ${divider}
@@ -1406,7 +1542,7 @@ END OF DOCUMENT
 ${divider}
 
 Generated by Kwooka Compliance System
-© ${new Date().getFullYear()} ${organization || '[Organization Name]'}. All rights reserved.
+© ${new Date().getFullYear()} ${orgName}. All rights reserved.
 `
 
   return content
