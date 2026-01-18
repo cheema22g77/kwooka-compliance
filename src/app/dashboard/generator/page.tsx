@@ -846,7 +846,48 @@ ${'─'.repeat(60)}
                 <CardTitle className="text-lg">Document Details</CardTitle>
                 <CardDescription>Select the type and sector for your document</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-5">
+                {/* Sector Selection - Dropdown */}
+                <div>
+                  <Label htmlFor="custom-sector" className="text-base">Sector *</Label>
+                  <select
+                    id="custom-sector"
+                    value={customDocSector}
+                    onChange={(e) => setCustomDocSector(e.target.value)}
+                    className="w-full mt-2 h-12 px-4 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-kwooka-ochre cursor-pointer"
+                  >
+                    <option value="">Select a sector...</option>
+                    {availableSectors.map(sector => (
+                      <option key={sector.id} value={sector.id}>
+                        {sector.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select the compliance sector this document applies to
+                  </p>
+                </div>
+
+                {/* Document Type Selection - Dropdown */}
+                <div>
+                  <Label htmlFor="custom-doc-type" className="text-base">Document Type *</Label>
+                  <select
+                    id="custom-doc-type"
+                    value={customDocCategory}
+                    onChange={(e) => setCustomDocCategory(e.target.value)}
+                    className="w-full mt-2 h-12 px-4 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-kwooka-ochre cursor-pointer"
+                  >
+                    <option value="policy">Policy - High-level guidelines and principles</option>
+                    <option value="procedure">Procedure - Step-by-step instructions</option>
+                    <option value="form">Form - Templates for data collection</option>
+                    <option value="plan">Plan - Strategic or operational plans</option>
+                    <option value="register">Register - Tracking and record keeping</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select the type of document you want to create
+                  </p>
+                </div>
+
                 {/* Document Name */}
                 <div>
                   <Label htmlFor="custom-doc-name" className="text-base">Document Name *</Label>
@@ -860,89 +901,6 @@ ${'─'.repeat(60)}
                   <p className="text-xs text-muted-foreground mt-1">
                     Enter a descriptive name for your document
                   </p>
-                </div>
-
-                {/* Sector Selection */}
-                <div>
-                  <Label className="text-base">Sector *</Label>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Select the compliance sector this document applies to
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {availableSectors.map(sector => {
-                      const SectorIcon = SECTOR_ICONS[sector.id] || Shield
-                      return (
-                        <button
-                          key={sector.id}
-                          type="button"
-                          onClick={() => setCustomDocSector(sector.id)}
-                          className={cn(
-                            'flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left',
-                            customDocSector === sector.id
-                              ? 'border-kwooka-ochre bg-kwooka-ochre/5'
-                              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                          )}
-                        >
-                          <div className={cn('p-2 rounded-lg', sector.color)}>
-                            <SectorIcon className="h-5 w-5 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">{sector.name}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-1">{sector.description}</p>
-                          </div>
-                          {customDocSector === sector.id && (
-                            <Check className="h-5 w-5 text-kwooka-ochre ml-auto" />
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Document Type Selection */}
-                <div>
-                  <Label className="text-base">Document Type *</Label>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Select the type of document you want to create
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {[
-                      { id: 'policy', name: 'Policy', description: 'High-level guidelines and principles', icon: FileText },
-                      { id: 'procedure', name: 'Procedure', description: 'Step-by-step instructions', icon: Zap },
-                      { id: 'form', name: 'Form', description: 'Templates for data collection', icon: FileText },
-                      { id: 'plan', name: 'Plan', description: 'Strategic or operational plans', icon: FileText },
-                      { id: 'register', name: 'Register', description: 'Tracking and record keeping', icon: FileText },
-                    ].map(docType => (
-                      <button
-                        key={docType.id}
-                        type="button"
-                        onClick={() => setCustomDocCategory(docType.id)}
-                        className={cn(
-                          'flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left',
-                          customDocCategory === docType.id
-                            ? 'border-kwooka-ochre bg-kwooka-ochre/5'
-                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                        )}
-                      >
-                        <div className={cn(
-                          'p-2 rounded-lg',
-                          customDocCategory === docType.id ? 'bg-kwooka-ochre' : 'bg-slate-200'
-                        )}>
-                          <docType.icon className={cn(
-                            'h-5 w-5',
-                            customDocCategory === docType.id ? 'text-white' : 'text-slate-600'
-                          )} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{docType.name}</p>
-                          <p className="text-xs text-muted-foreground">{docType.description}</p>
-                        </div>
-                        {customDocCategory === docType.id && (
-                          <Check className="h-5 w-5 text-kwooka-ochre ml-auto" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </CardContent>
             </Card>
