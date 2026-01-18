@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FileText, AlertTriangle, Shield, Sparkles,
   Settings, HelpCircle, ChevronLeft, ChevronRight,
-  MessageCircle, Wand2, LogOut, Loader2, Scale, Database
+  MessageCircle, Wand2, LogOut, Loader2, Scale, Database, X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,8 @@ import { createClient } from '@/lib/supabase/client'
 interface SidebarProps {
   collapsed: boolean
   onToggle: () => void
+  mobileOpen?: boolean
+  isMobile?: boolean
 }
 
 const mainNavItems = [
@@ -32,7 +34,7 @@ const bottomNavItems = [
   { href: '/dashboard/help', icon: HelpCircle, label: 'Help' },
 ]
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen = false, isMobile = false }: SidebarProps) {
   const pathname = usePathname()
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -49,18 +51,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     }
   }
 
+  const handleNavClick = () => {
+    if (isMobile) {
+      onToggle() // Close mobile menu on navigation
+    }
+  }
+
+  // Hide on mobile unless menu is open
+  if (isMobile && !mobileOpen) {
+    return null
+  }
+
   return (
     <aside
       className={cn(
         'fixed left-0 top-0 z-40 h-screen bg-white border-r border-slate-200 transition-all duration-300 flex flex-col',
-        collapsed ? 'w-[70px]' : 'w-[260px]'
+        isMobile ? 'w-[280px]' : (collapsed ? 'w-[70px]' : 'w-[260px]')
       )}
     >
       {/* Logo */}
-      <div className={cn('flex items-center h-16 border-b border-slate-200 px-4', collapsed && 'justify-center')}>
-        <Link href="/dashboard" className="flex items-center gap-3">
+      <div className={cn('flex items-center h-16 border-b border-slate-200 px-4', collapsed && !isMobile && 'justify-center')}>
+        <Link href="/dashboard" className="flex items-center gap-3" onClick={handleNavClick}>
           <img src="/images/kwooka_mascot_clean.png" alt="Kwooka" className="h-10 w-10 object-contain flex-shrink-0" />
-          {!collapsed && (
+          {(!collapsed || isMobile) && (
             <div>
               <span className="font-bold text-slate-900">Kwooka</span>
               <span className="text-[10px] text-slate-500 block -mt-1">COMPLIANCE</span>
@@ -71,9 +84,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className={cn('ml-auto h-8 w-8 flex-shrink-0', collapsed && 'ml-0 mt-2')}
+          className={cn('ml-auto h-8 w-8 flex-shrink-0', collapsed && !isMobile && 'ml-0 mt-2')}
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {isMobile ? (
+            <X className="h-4 w-4" />
+          ) : collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
         </Button>
       </div>
 
@@ -82,7 +101,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {mainNavItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={item.href} onClick={handleNavClick}>
               <div
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative',
@@ -92,7 +111,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 )}
               >
                 <item.icon className={cn('h-5 w-5 shrink-0', isActive && 'text-kwooka-ochre')} />
-                {!collapsed && (
+                {(!collapsed || isMobile) && (
                   <>
                     <div className="flex-1 min-w-0">
                       <span className={cn('text-sm font-medium block', isActive && 'text-kwooka-ochre')}>
@@ -116,7 +135,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* AI Copilot Card with Mascot - Only show when not collapsed */}
-      {!collapsed && (
+      {(!collapsed || isMobile) && (
         <div className="p-3 flex-shrink-0">
           <div className="bg-gradient-to-br from-kwooka-sand/50 to-amber-100/50 rounded-xl p-4 relative overflow-hidden">
             <div className="flex justify-center mb-2">
@@ -132,7 +151,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="text-center">
               <h4 className="font-semibold text-slate-800 text-sm">Ask Kwooka</h4>
               <p className="text-xs text-slate-600 mt-0.5">Your AI compliance assistant</p>
-              <Link href="/dashboard/copilot">
+              <Link href="/dashboard/copilot" onClick={handleNavClick}>
                 <Button size="sm" className="mt-2 w-full bg-kwooka-ochre hover:bg-kwooka-ochre/90 h-8 text-xs">
                   <MessageCircle className="h-3 w-3 mr-1.5" />
                   Start Chat
@@ -148,16 +167,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {bottomNavItems.map((item) => {
           const isActive = pathname === item.href
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={item.href} onClick={handleNavClick}>
               <div
                 className={cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg transition-all',
                   isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-100',
-                  collapsed && 'justify-center'
+                  collapsed && !isMobile && 'justify-center'
                 )}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
-                {!collapsed && <span className="text-sm">{item.label}</span>}
+                {(!collapsed || isMobile) && <span className="text-sm">{item.label}</span>}
               </div>
             </Link>
           )
@@ -170,7 +189,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           className={cn(
             'flex items-center gap-3 px-3 py-2 rounded-lg transition-all w-full text-left',
             'text-red-600 hover:bg-red-50',
-            collapsed && 'justify-center',
+            collapsed && !isMobile && 'justify-center',
             loggingOut && 'opacity-50 cursor-not-allowed'
           )}
         >
@@ -179,7 +198,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           ) : (
             <LogOut className="h-5 w-5 flex-shrink-0" />
           )}
-          {!collapsed && <span className="text-sm">{loggingOut ? 'Logging out...' : 'Logout'}</span>}
+          {(!collapsed || isMobile) && <span className="text-sm">{loggingOut ? 'Logging out...' : 'Logout'}</span>}
         </button>
       </div>
     </aside>
