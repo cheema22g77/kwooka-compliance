@@ -233,7 +233,7 @@ const STEPS = [
   { id: 4, name: 'Download', description: 'Export files' },
 ]
 
-type ViewMode = 'single' | 'pack'
+type ViewMode = 'single' | 'pack' | 'custom'
 type GenerationStatus = 'pending' | 'generating' | 'completed' | 'error'
 
 interface GeneratedDocument {
@@ -287,6 +287,11 @@ export default function PolicyGeneratorPage() {
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocument[]>([])
   const [currentGeneratingIndex, setCurrentGeneratingIndex] = useState(0)
   const [downloadingZip, setDownloadingZip] = useState(false)
+  
+  // Custom document state
+  const [customDocName, setCustomDocName] = useState('')
+  const [customDocSector, setCustomDocSector] = useState('')
+  const [customDocCategory, setCustomDocCategory] = useState('policy')
 
   // Filter templates
   const filteredTemplates = TEMPLATES.filter(template => {
@@ -325,6 +330,30 @@ export default function PolicyGeneratorPage() {
     const essentialIds = pack.documents.filter(d => d.essential).map(d => d.id)
     setSelectedDocuments(essentialIds)
     setCurrentStep(2)
+  }
+
+  const handleSelectCustom = () => {
+    setViewMode('custom')
+    setCustomDocSector(primarySector || '')
+    setCustomDocCategory('policy')
+    setCustomDocName('')
+    setCurrentStep(2)
+  }
+
+  const handleGenerateCustom = () => {
+    if (!customDocName || !customDocSector || !customDocCategory) return
+    
+    const sectorInfo = getSectorInfo(customDocSector)
+    setSelectedTemplate({
+      id: 'custom',
+      name: customDocName,
+      description: `Custom ${customDocCategory} for ${sectorInfo?.name}`,
+      sector: customDocSector,
+      category: customDocCategory,
+      standard: sectorInfo?.standards?.[0] || 'Custom'
+    })
+    setViewMode('single')
+    handleGenerateSingle()
   }
 
   const toggleDocumentSelection = (docId: string) => {
@@ -532,6 +561,9 @@ ${'─'.repeat(60)}
     setGeneratedDocuments([])
     setCustomPrompt('')
     setOrgDetails({ name: '', abn: '', authorisedBy: '', authorisedPosition: '' })
+    setCustomDocName('')
+    setCustomDocSector('')
+    setCustomDocCategory('policy')
     setCurrentStep(1)
     setViewMode('single')
   }
@@ -676,18 +708,7 @@ ${'─'.repeat(60)}
             {/* Quick Actions */}
             <Card 
               className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-kwooka-ochre group"
-              onClick={() => {
-                setSelectedTemplate({ 
-                  id: 'custom', 
-                  name: 'Custom Document', 
-                  description: 'Create a custom policy from scratch',
-                  sector: primarySector || 'ndis', 
-                  category: 'policy',
-                  standard: 'Custom'
-                })
-                setViewMode('single')
-                setCurrentStep(2)
-              }}
+              onClick={handleSelectCustom}
             >
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center gap-4">
@@ -796,6 +817,325 @@ ${'─'.repeat(60)}
                 </CardContent>
               </Card>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: Customize - Custom Document */}
+      {currentStep === 2 && viewMode === 'custom' && (
+        <div className="grid gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3 space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-kwooka-ochre to-amber-600">
+                    <Sparkles className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-xl">Create Custom Document</CardTitle>
+                    <CardDescription className="mt-1">
+                      Generate a custom compliance document tailored to your needs
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Document Details</CardTitle>
+                <CardDescription>Select the type and sector for your document</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Document Name */}
+                <div>
+                  <Label htmlFor="custom-doc-name" className="text-base">Document Name *</Label>
+                  <Input
+                    id="custom-doc-name"
+                    placeholder="e.g., Cultural Safety Policy, Infection Control Procedure"
+                    value={customDocName}
+                    onChange={(e) => setCustomDocName(e.target.value)}
+                    className="mt-2 h-12"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enter a descriptive name for your document
+                  </p>
+                </div>
+
+                {/* Sector Selection */}
+                <div>
+                  <Label className="text-base">Sector *</Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Select the compliance sector this document applies to
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {availableSectors.map(sector => {
+                      const SectorIcon = SECTOR_ICONS[sector.id] || Shield
+                      return (
+                        <button
+                          key={sector.id}
+                          type="button"
+                          onClick={() => setCustomDocSector(sector.id)}
+                          className={cn(
+                            'flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left',
+                            customDocSector === sector.id
+                              ? 'border-kwooka-ochre bg-kwooka-ochre/5'
+                              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          )}
+                        >
+                          <div className={cn('p-2 rounded-lg', sector.color)}>
+                            <SectorIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{sector.name}</p>
+                            <p className="text-xs text-muted-foreground">{sector.shortName}</p>
+                          </div>
+                          {customDocSector === sector.id && (
+                            <Check className="h-5 w-5 text-kwooka-ochre ml-auto" />
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Document Type Selection */}
+                <div>
+                  <Label className="text-base">Document Type *</Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Select the type of document you want to create
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      { id: 'policy', name: 'Policy', description: 'High-level guidelines and principles', icon: FileText },
+                      { id: 'procedure', name: 'Procedure', description: 'Step-by-step instructions', icon: Zap },
+                      { id: 'form', name: 'Form', description: 'Templates for data collection', icon: FileText },
+                      { id: 'plan', name: 'Plan', description: 'Strategic or operational plans', icon: FileText },
+                      { id: 'register', name: 'Register', description: 'Tracking and record keeping', icon: FileText },
+                    ].map(docType => (
+                      <button
+                        key={docType.id}
+                        type="button"
+                        onClick={() => setCustomDocCategory(docType.id)}
+                        className={cn(
+                          'flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left',
+                          customDocCategory === docType.id
+                            ? 'border-kwooka-ochre bg-kwooka-ochre/5'
+                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        )}
+                      >
+                        <div className={cn(
+                          'p-2 rounded-lg',
+                          customDocCategory === docType.id ? 'bg-kwooka-ochre' : 'bg-slate-200'
+                        )}>
+                          <docType.icon className={cn(
+                            'h-5 w-5',
+                            customDocCategory === docType.id ? 'text-white' : 'text-slate-600'
+                          )} />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{docType.name}</p>
+                          <p className="text-xs text-muted-foreground">{docType.description}</p>
+                        </div>
+                        {customDocCategory === docType.id && (
+                          <Check className="h-5 w-5 text-kwooka-ochre ml-auto" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Organization Details</CardTitle>
+                <CardDescription>These details will appear on all generated documents</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="org-name-custom" className="text-base">Organization Name *</Label>
+                    <Input
+                      id="org-name-custom"
+                      placeholder="e.g., Kwooka Health Services Pty Ltd"
+                      value={orgDetails.name}
+                      onChange={(e) => setOrgDetails(prev => ({ ...prev, name: e.target.value }))}
+                      className="mt-2 h-12"
+                    />
+                  </div>
+                  
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="abn-custom" className="text-base">ABN / ACN</Label>
+                    <Input
+                      id="abn-custom"
+                      placeholder="e.g., 12 345 678 901"
+                      value={orgDetails.abn}
+                      onChange={(e) => setOrgDetails(prev => ({ ...prev, abn: e.target.value }))}
+                      className="mt-2 h-12"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="authorised-by-custom" className="text-base">Authorised By *</Label>
+                    <Input
+                      id="authorised-by-custom"
+                      placeholder="e.g., John Smith"
+                      value={orgDetails.authorisedBy}
+                      onChange={(e) => setOrgDetails(prev => ({ ...prev, authorisedBy: e.target.value }))}
+                      className="mt-2 h-12"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="authorised-position-custom" className="text-base">Position / Title</Label>
+                    <Input
+                      id="authorised-position-custom"
+                      placeholder="e.g., CEO, Director"
+                      value={orgDetails.authorisedPosition}
+                      onChange={(e) => setOrgDetails(prev => ({ ...prev, authorisedPosition: e.target.value }))}
+                      className="mt-2 h-12"
+                    />
+                  </div>
+                </div>
+                
+                <div className="pt-4 border-t">
+                  <Label htmlFor="custom-prompt-custom" className="text-base">Additional Requirements</Label>
+                  <textarea
+                    id="custom-prompt-custom"
+                    placeholder="Add any specific requirements, content to include, or customizations..."
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    rows={4}
+                    className="w-full mt-2 rounded-lg border border-input bg-background px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-kwooka-ochre"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Describe any specific content, regulations, or requirements you want included
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Card className="sticky top-24">
+              <CardHeader>
+                <CardTitle className="text-lg">Document Preview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-slate-50 rounded-lg p-4 space-y-3 mb-6">
+                  {customDocName ? (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Document Name</p>
+                      <p className="font-semibold">{customDocName}</p>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground italic">Enter document name above</div>
+                  )}
+                  
+                  {customDocSector && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Sector</p>
+                      <div className="flex items-center gap-2">
+                        <Badge className={cn(getSectorInfo(customDocSector)?.color, 'text-white')}>
+                          {getSectorInfo(customDocSector)?.name}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <p className="text-xs text-muted-foreground">Document Type</p>
+                    <Badge variant="secondary" className="capitalize">{customDocCategory}</Badge>
+                  </div>
+                  
+                  {orgDetails.name && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Organization</p>
+                      <p className="font-medium text-sm">{orgDetails.name}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2 text-sm mb-6">
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>AI-generated content</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Professional structure</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Includes document control</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Download as PDF</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Button
+                    onClick={() => {
+                      if (!customDocName || !customDocSector || !customDocCategory || !isFormValid()) return
+                      
+                      const sectorInfo = getSectorInfo(customDocSector)
+                      setSelectedTemplate({
+                        id: 'custom',
+                        name: customDocName,
+                        description: `Custom ${customDocCategory} for ${sectorInfo?.name}`,
+                        sector: customDocSector,
+                        category: customDocCategory,
+                        standard: `${sectorInfo?.name} Compliance`
+                      })
+                      setViewMode('single')
+                      // Trigger generation after a tick
+                      setTimeout(() => {
+                        handleGenerateSingle()
+                      }, 100)
+                    }}
+                    disabled={!customDocName || !customDocSector || !customDocCategory || !isFormValid()}
+                    className="w-full h-12 bg-kwooka-ochre hover:bg-kwooka-ochre/90 text-base"
+                  >
+                    <Sparkles className="h-5 w-5 mr-2" />
+                    Generate Document
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep(1)}
+                    className="w-full"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </Button>
+                </div>
+
+                {(!customDocName || !customDocSector || !isFormValid()) && (
+                  <div className="mt-3 space-y-1">
+                    {!customDocName && (
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Enter a document name
+                      </p>
+                    )}
+                    {!customDocSector && (
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Select a sector
+                      </p>
+                    )}
+                    {!isFormValid() && (
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Enter Organization Name and Authorised By
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
