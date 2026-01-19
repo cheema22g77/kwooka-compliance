@@ -20,7 +20,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const { signUp } = useAuth()
+  const { signUp } = useAuth(false)
   const router = useRouter()
 
   const passwordRequirements = [
