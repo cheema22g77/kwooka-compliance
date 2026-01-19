@@ -1,17 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Shield, Truck, Heart, Home, Briefcase, HardHat, Check, Loader2, Save, ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { clearSectorCache } from '@/contexts/sector-context'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 
-const ALL_SECTORS = [
+export const ALL_SECTORS = [
   { id: 'ndis', name: 'NDIS', description: 'Practice Standards', color: 'bg-purple-500' },
   { id: 'transport', name: 'Transport', description: 'HVNL & CoR', color: 'bg-blue-500' },
   { id: 'healthcare', name: 'Healthcare', description: 'NSQHS Standards', color: 'bg-red-500' },
@@ -20,228 +12,350 @@ const ALL_SECTORS = [
   { id: 'construction', name: 'Construction', description: 'WHS Construction', color: 'bg-orange-500' },
 ]
 
-const SECTOR_ICONS: Record<string, any> = {
-  ndis: Shield,
-  transport: Truck,
-  healthcare: Heart,
-  aged_care: Home,
-  workplace: Briefcase,
-  construction: HardHat,
+interface SectorContextType {
+  userSectors: string[]
+  primarySector: string
+  isLoading: boolean
+  isSaving: boolean
+  hasAccess: (sector: string) => boolean
+  getUserSectorObjects: () => typeof ALL_SECTORS
+  refreshSectors: () => Promise<void>
+  setSectors: (sectors: string[], primarySector?: string) => Promise<boolean>
+  setPrimarySectorOnly: (sector: string) => Promise<boolean>
+  addSector: (sector: string) => Promise<boolean>
+  removeSector: (sector: string) => Promise<boolean>
 }
 
-export default function SectorSettingsPage() {
-  const [selectedSectors, setSelectedSectors] = useState<string[]>(['ndis'])
-  const [selectedPrimary, setSelectedPrimary] = useState<string>('ndis')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+const SectorContext = createContext<SectorContextType | undefined>(undefined)
+
+// Cache for sector data
+let cachedSectors: string[] | null = null
+let cachedPrimary: string | null = null
+let cacheTimestamp: number = 0
+const CACHE_DURATION = 60000 // 1 minute cache
+
+export function SectorProvider({ children }: { children: ReactNode }) {
+  const [userSectors, setUserSectors] = useState<string[]>(cachedSectors || ['ndis'])
+  const [primarySector, setPrimarySector] = useState<string>(cachedPrimary || 'ndis')
+  const [isLoading, setIsLoading] = useState(!cachedSectors)
+  const [isSaving, setIsSaving] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
   const supabase = createClient()
-  const router = useRouter()
+
+  // Fetch user on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+      }
+    }
+    getUser()
+  }, [])
 
   useEffect(() => {
+    // Use cache if available and fresh
+    if (cachedSectors && Date.now() - cacheTimestamp < CACHE_DURATION) {
+      setUserSectors(cachedSectors)
+      setPrimarySector(cachedPrimary || 'ndis')
+      setIsLoading(false)
+      return
+    }
+    
     fetchUserSectors()
   }, [])
 
   const fetchUserSectors = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserId(user.id)
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('sectors, primary_sector')
-          .eq('id', user.id)
-          .single()
-
-        if (profile) {
-          setSelectedSectors(profile.sectors || ['ndis'])
-          setSelectedPrimary(profile.primary_sector || 'ndis')
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching sectors:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const toggleSector = (sectorId: string) => {
-    setError(null)
-    setSaved(false)
-    
-    if (selectedSectors.includes(sectorId)) {
-      if (selectedSectors.length === 1) {
-        setError('You must have at least one sector selected')
+      
+      if (!user) {
+        // Default for non-logged in users - show all sectors
+        const defaultSectors = ['ndis', 'transport', 'healthcare', 'aged_care', 'workplace', 'construction']
+        setUserSectors(defaultSectors)
+        setPrimarySector('ndis')
+        cachedSectors = defaultSectors
+        cachedPrimary = 'ndis'
+        cacheTimestamp = Date.now()
+        setIsLoading(false)
         return
       }
-      
-      const newSectors = selectedSectors.filter(s => s !== sectorId)
-      setSelectedSectors(newSectors)
-      
-      if (selectedPrimary === sectorId) {
-        setSelectedPrimary(newSectors[0])
+
+      setUserId(user.id)
+
+      // Fetch from user_sectors table
+      const { data: sectorData, error } = await supabase
+        .from('user_sectors')
+        .select('sector_id, is_primary')
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Error fetching sectors:', error)
+        // Fall back to defaults
+        setUserSectors(['ndis'])
+        setPrimarySector('ndis')
+        setIsLoading(false)
+        return
       }
-    } else {
-      setSelectedSectors([...selectedSectors, sectorId])
-    }
-  }
 
-  const handleSave = async () => {
-    if (!userId) {
-      setError('You must be logged in to save settings')
-      return
-    }
-
-    setSaving(true)
-    setError(null)
-    
-    try {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          sectors: selectedSectors, 
-          primary_sector: selectedPrimary 
-        })
-        .eq('id', userId)
-      
-      if (updateError) {
-        setError(`Failed to save: ${updateError.message}`)
-      } else {
-        // Clear the cache so other pages get fresh data
-        clearSectorCache()
-        setSaved(true)
+      if (sectorData && sectorData.length > 0) {
+        const sectors = sectorData.map(s => s.sector_id)
+        const primary = sectorData.find(s => s.is_primary)?.sector_id || sectors[0] || 'ndis'
         
-        // Redirect to dashboard after short delay
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 1000)
+        setUserSectors(sectors)
+        setPrimarySector(primary)
+        
+        // Update cache
+        cachedSectors = sectors
+        cachedPrimary = primary
+        cacheTimestamp = Date.now()
+      } else {
+        // No sectors saved yet - default to NDIS and save it
+        const defaultSectors = ['ndis']
+        setUserSectors(defaultSectors)
+        setPrimarySector('ndis')
+        
+        // Save default sector to database
+        await supabase.from('user_sectors').insert({
+          user_id: user.id,
+          sector_id: 'ndis',
+          is_primary: true
+        })
+        
+        cachedSectors = defaultSectors
+        cachedPrimary = 'ndis'
+        cacheTimestamp = Date.now()
       }
     } catch (error: any) {
-      setError(`Failed to save: ${error.message}`)
+      if (error?.name !== 'AbortError' && !error?.message?.includes('aborted')) {
+        console.error('Error fetching user sectors:', error)
+      }
     } finally {
-      setSaving(false)
+      setIsLoading(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+  const refreshSectors = async () => {
+    cachedSectors = null
+    cachedPrimary = null
+    cacheTimestamp = 0
+    setIsLoading(true)
+    await fetchUserSectors()
   }
 
+  /**
+   * Set all sectors at once (replaces existing)
+   */
+  const setSectors = useCallback(async (sectors: string[], primary?: string): Promise<boolean> => {
+    if (!userId || sectors.length === 0) return false
+    
+    setIsSaving(true)
+    try {
+      // Delete all existing sectors for this user
+      await supabase
+        .from('user_sectors')
+        .delete()
+        .eq('user_id', userId)
+      
+      // Determine primary sector
+      const primarySectorId = primary || sectors[0]
+      
+      // Insert new sectors
+      const inserts = sectors.map(sector_id => ({
+        user_id: userId,
+        sector_id,
+        is_primary: sector_id === primarySectorId
+      }))
+      
+      const { error } = await supabase
+        .from('user_sectors')
+        .insert(inserts)
+      
+      if (error) {
+        console.error('Error saving sectors:', error)
+        return false
+      }
+      
+      // Update local state
+      setUserSectors(sectors)
+      setPrimarySector(primarySectorId)
+      
+      // Update cache
+      cachedSectors = sectors
+      cachedPrimary = primarySectorId
+      cacheTimestamp = Date.now()
+      
+      return true
+    } catch (error) {
+      console.error('Error setting sectors:', error)
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }, [userId, supabase])
+
+  /**
+   * Change only the primary sector
+   */
+  const setPrimarySectorOnly = useCallback(async (sector: string): Promise<boolean> => {
+    if (!userId || !userSectors.includes(sector)) return false
+    
+    setIsSaving(true)
+    try {
+      // Set all to non-primary
+      await supabase
+        .from('user_sectors')
+        .update({ is_primary: false })
+        .eq('user_id', userId)
+      
+      // Set the new primary
+      const { error } = await supabase
+        .from('user_sectors')
+        .update({ is_primary: true })
+        .eq('user_id', userId)
+        .eq('sector_id', sector)
+      
+      if (error) {
+        console.error('Error setting primary sector:', error)
+        return false
+      }
+      
+      setPrimarySector(sector)
+      cachedPrimary = sector
+      cacheTimestamp = Date.now()
+      
+      return true
+    } catch (error) {
+      console.error('Error setting primary sector:', error)
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }, [userId, userSectors, supabase])
+
+  /**
+   * Add a single sector
+   */
+  const addSector = useCallback(async (sector: string): Promise<boolean> => {
+    if (!userId || userSectors.includes(sector)) return false
+    
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('user_sectors')
+        .insert({
+          user_id: userId,
+          sector_id: sector,
+          is_primary: userSectors.length === 0 // Make primary if first sector
+        })
+      
+      if (error) {
+        console.error('Error adding sector:', error)
+        return false
+      }
+      
+      const newSectors = [...userSectors, sector]
+      setUserSectors(newSectors)
+      
+      if (userSectors.length === 0) {
+        setPrimarySector(sector)
+        cachedPrimary = sector
+      }
+      
+      cachedSectors = newSectors
+      cacheTimestamp = Date.now()
+      
+      return true
+    } catch (error) {
+      console.error('Error adding sector:', error)
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }, [userId, userSectors, supabase])
+
+  /**
+   * Remove a single sector
+   */
+  const removeSector = useCallback(async (sector: string): Promise<boolean> => {
+    if (!userId || !userSectors.includes(sector) || userSectors.length <= 1) return false
+    
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('user_sectors')
+        .delete()
+        .eq('user_id', userId)
+        .eq('sector_id', sector)
+      
+      if (error) {
+        console.error('Error removing sector:', error)
+        return false
+      }
+      
+      const newSectors = userSectors.filter(s => s !== sector)
+      setUserSectors(newSectors)
+      
+      // If we removed the primary, set a new primary
+      if (primarySector === sector) {
+        const newPrimary = newSectors[0]
+        await supabase
+          .from('user_sectors')
+          .update({ is_primary: true })
+          .eq('user_id', userId)
+          .eq('sector_id', newPrimary)
+        
+        setPrimarySector(newPrimary)
+        cachedPrimary = newPrimary
+      }
+      
+      cachedSectors = newSectors
+      cacheTimestamp = Date.now()
+      
+      return true
+    } catch (error) {
+      console.error('Error removing sector:', error)
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }, [userId, userSectors, primarySector, supabase])
+
+  const hasAccess = (sector: string) => userSectors.includes(sector)
+
+  const getUserSectorObjects = () => ALL_SECTORS.filter(s => userSectors.includes(s.id))
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/settings">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">Sector Settings</h1>
-          <p className="text-muted-foreground">Choose which compliance sectors you work with</p>
-        </div>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm">{error}</div>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Sectors</CardTitle>
-          <CardDescription>Select all sectors relevant to your organization.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {ALL_SECTORS.map((sector) => {
-              const Icon = SECTOR_ICONS[sector.id]
-              const isSelected = selectedSectors.includes(sector.id)
-              const isPrimary = selectedPrimary === sector.id
-              
-              return (
-                <div
-                  key={sector.id}
-                  onClick={() => toggleSector(sector.id)}
-                  className={cn(
-                    'relative p-4 rounded-xl border-2 cursor-pointer transition-all',
-                    isSelected 
-                      ? 'border-kwooka-ochre bg-kwooka-ochre/5' 
-                      : 'border-slate-200 hover:border-slate-300 bg-white'
-                  )}
-                >
-                  {isSelected && (
-                    <div className="absolute top-2 right-2">
-                      <div className="h-5 w-5 rounded-full bg-kwooka-ochre flex items-center justify-center">
-                        <Check className="h-3 w-3 text-white" />
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className={cn('p-3 rounded-lg w-fit', sector.color)}>
-                    <Icon className="h-6 w-6 text-white" />
-                  </div>
-                  
-                  <h3 className="font-semibold mt-3">{sector.name}</h3>
-                  <p className="text-sm text-muted-foreground">{sector.description}</p>
-                  
-                  {isPrimary && isSelected && (
-                    <Badge className="mt-2 bg-kwooka-ochre">Primary</Badge>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Primary Sector</CardTitle>
-          <CardDescription>Your primary sector is shown by default.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {selectedSectors.map((sectorId) => {
-              const sector = ALL_SECTORS.find(s => s.id === sectorId)
-              if (!sector) return null
-              
-              return (
-                <button
-                  key={sectorId}
-                  onClick={() => { setSelectedPrimary(sectorId); setSaved(false) }}
-                  className={cn(
-                    'px-4 py-2 rounded-lg border-2 transition-all flex items-center gap-2',
-                    selectedPrimary === sectorId
-                      ? 'border-kwooka-ochre bg-kwooka-ochre text-white'
-                      : 'border-slate-200 hover:border-kwooka-ochre/50'
-                  )}
-                >
-                  {sector.name}
-                  {selectedPrimary === sectorId && <Check className="h-4 w-4" />}
-                </button>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center gap-4">
-        <Button onClick={handleSave} disabled={saving} className="bg-kwooka-ochre hover:bg-kwooka-ochre/90">
-          {saving ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
-          ) : saved ? (
-            <><Check className="h-4 w-4 mr-2" />Saved! Redirecting...</>
-          ) : (
-            <><Save className="h-4 w-4 mr-2" />Save Changes</>
-          )}
-        </Button>
-      </div>
-    </div>
+    <SectorContext.Provider value={{
+      userSectors,
+      primarySector,
+      isLoading,
+      isSaving,
+      hasAccess,
+      getUserSectorObjects,
+      refreshSectors,
+      setSectors,
+      setPrimarySectorOnly,
+      addSector,
+      removeSector,
+    }}>
+      {children}
+    </SectorContext.Provider>
   )
+}
+
+export function useSector() {
+  const context = useContext(SectorContext)
+  if (context === undefined) {
+    throw new Error('useSector must be used within a SectorProvider')
+  }
+  return context
+}
+
+// Helper to clear cache (call after saving settings)
+export function clearSectorCache() {
+  cachedSectors = null
+  cachedPrimary = null
+  cacheTimestamp = 0
 }

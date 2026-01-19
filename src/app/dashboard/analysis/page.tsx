@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { exportAnalysisReport } from '@/lib/pdf/export-report'
+import { extractPDFText, isPDF, formatExtractionResult } from '@/lib/pdf/extractor'
 import { useSector, ALL_SECTORS } from '@/contexts/sector-context'
 import Link from 'next/link'
 
@@ -41,6 +42,7 @@ export default function AnalysisPage() {
   const [expandedFinding, setExpandedFinding] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [extractingPdf, setExtractingPdf] = useState(false)
 
   const supabase = createClient()
   const availableSectors = getUserSectorObjects()
@@ -82,19 +84,39 @@ export default function AnalysisPage() {
     setError(null)
     setPdfMessage(null)
     
-    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-    
-    if (isPDF) {
-      setPdfMessage('PDF detected! Please copy the text from your PDF and paste it below.')
+    // Check if it's a PDF
+    if (isPDF(file)) {
+      setExtractingPdf(true)
+      setPdfMessage('Extracting text from PDF...')
+      
+      try {
+        const result = await extractPDFText(file)
+        
+        if (result.method === 'failed' || result.text.length < 100) {
+          setPdfMessage('Could not extract text automatically. Please copy and paste the text from your PDF below.')
+          setExtractingPdf(false)
+          return
+        }
+        
+        setDocumentText(result.text)
+        setPdfMessage(formatExtractionResult(result))
+        setExtractingPdf(false)
+      } catch (err) {
+        console.error('PDF extraction error:', err)
+        setPdfMessage('Could not extract text automatically. Please copy and paste the text from your PDF below.')
+        setExtractingPdf(false)
+      }
       return
     }
     
+    // Handle text files
     if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
       const text = await file.text()
       setDocumentText(text)
       return
     }
     
+    // Try to read as text for other file types
     try {
       const text = await file.text()
       setDocumentText(text)
@@ -216,6 +238,12 @@ export default function AnalysisPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/dashboard/analysis/history">
+            <Button variant="outline" className="gap-2">
+              <Clock className="h-4 w-4" />
+              History
+            </Button>
+          </Link>
           {analysis ? (
             <>
               <Button variant="outline" onClick={handleExportPDF} disabled={exporting} className="gap-2">
@@ -325,12 +353,25 @@ export default function AnalysisPage() {
               <CardContent className="space-y-4">
                 {fileName && (
                   <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <FileText className="h-5 w-5 text-blue-600" />
+                    {extractingPdf ? (
+                      <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+                    ) : (
+                      <FileText className="h-5 w-5 text-blue-600" />
+                    )}
                     <div className="flex-1">
                       <p className="font-medium text-sm text-blue-800">{fileName}</p>
-                      {pdfMessage && <p className="text-xs text-blue-600 mt-1">{pdfMessage}</p>}
+                      {pdfMessage && (
+                        <p className={cn(
+                          "text-xs mt-1",
+                          extractingPdf ? "text-blue-500" : 
+                          documentText ? "text-green-600" : "text-amber-600"
+                        )}>
+                          {extractingPdf && <Loader2 className="h-3 w-3 inline mr-1 animate-spin" />}
+                          {pdfMessage}
+                        </p>
+                      )}
                     </div>
-                    <button onClick={clearFile} className="p-1 hover:bg-blue-100 rounded">
+                    <button onClick={clearFile} className="p-1 hover:bg-blue-100 rounded" disabled={extractingPdf}>
                       <X className="h-4 w-4 text-blue-600" />
                     </button>
                   </div>
