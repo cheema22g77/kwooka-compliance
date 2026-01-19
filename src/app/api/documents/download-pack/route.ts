@@ -369,7 +369,7 @@ export async function POST(request: NextRequest) {
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' })
     const zipFilename = body.packName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')
 
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(new Uint8Array(zipBuffer), {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${zipFilename}_Compliance_Pack.zip"`,
