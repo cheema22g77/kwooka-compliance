@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 33% 98%;
+    --foreground: 20 14% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 20 14% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14% 10%;
+
+    --primary: 24 85% 44%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 40 20% 93%;
+    --secondary-foreground: 20 14% 10%;
+
+    --muted: 40 20% 93%;
+    --muted-foreground: 20 10% 45%;
+
+    --accent: 40 20% 93%;
+    --accent-foreground: 20 14% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 15% 88%;
+    --input: 40 15% 88%;
+    --ring: 24 85% 44%;
+
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 20 14% 8%;
+    --foreground: 40 20% 95%;
+
+    --card: 20 14% 10%;
+    --card-foreground: 40 20% 95%;
+
+    --popover: 20 14% 10%;
+    --popover-foreground: 40 20% 95%;
+
+    --primary: 24 85% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 20 14% 15%;
+    --secondary-foreground: 40 20% 95%;
+
+    --muted: 20 14% 15%;
+    --muted-foreground: 40 10% 55%;
+
+    --accent: 20 14% 15%;
+    --accent-foreground: 40 20% 95%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 20 14% 18%;
+    --input: 20 14% 18%;
+    --ring: 24 85% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
+  }
+}
+
+@layer utilities {
+  /* Animation delays for staggered animations */
+  .animate-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animate-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animate-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animate-delay-400 {
+    animation-delay: 400ms;
+  }
+  .animate-delay-500 {
+    animation-delay: 500ms;
+  }
+
+  /* Gradient backgrounds */
+  .bg-gradient-mesh {
+    background: 
+      radial-gradient(at 40% 20%, hsl(24, 85%, 44%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsl(40, 33%, 98%) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, hsl(24, 85%, 44%, 0.05) 0px, transparent 50%),
+      radial-gradient(at 80% 50%, hsl(40, 20%, 93%) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, hsl(24, 85%, 44%, 0.08) 0px, transparent 50%);
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl border border-white/10;
+  }
+
+  /* Card hover effect */
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:shadow-kwooka-ochre/5 hover:-translate-y-0.5;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--muted) / 0.4),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+  }
+}
+
+/* Page transition animations */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.4s ease-out forwards;
+}
+
+/* Stat card number animation */
+@keyframes count-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stat-number {
+  animation: count-up 0.6s ease-out forwards;
+}
