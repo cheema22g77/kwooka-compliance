@@ -4,6 +4,7 @@
 // ============================================================================
 import type { EventBus } from "../bus";
 import type { AnyDomainEvent } from "../types";
+import type { WebhookManager, WebhookEndpoint } from "@/lib/webhooks";
 
 /**
  * Register all domain event handlers on the bus.
@@ -19,6 +20,8 @@ export function registerHandlers(
     sendEmail?: (to: string, subject: string, body: string) => Promise<void>;
     recalculateRisk?: (orgId: string) => Promise<void>;
     logAuditTrail?: (event: AnyDomainEvent) => Promise<void>;
+    webhookManager?: WebhookManager;
+    getWebhookEndpoints?: (orgId: string) => Promise<WebhookEndpoint[]>;
   }
 ): void {
   // Global audit trail — every event gets logged
@@ -109,4 +112,21 @@ export function registerHandlers(
     };
     console.warn(`[Guardrail] Layer ${layer} rejected run ${agentRunId}: ${reason}`);
   });
+
+  // Webhooks — dispatch matching events to registered endpoints
+  if (deps.webhookManager && deps.getWebhookEndpoints) {
+    const manager = deps.webhookManager;
+    const getEndpoints = deps.getWebhookEndpoints;
+
+    bus.onAll(async (event) => {
+      try {
+        const endpoints = await getEndpoints(event.orgId);
+        if (endpoints.length > 0) {
+          await manager.dispatch(endpoints, event);
+        }
+      } catch (err) {
+        console.error(`[Webhooks] Failed to dispatch ${event.eventType}:`, err);
+      }
+    });
+  }
 }
