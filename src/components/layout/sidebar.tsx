@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Sparkles, AlertTriangle, FileText,
   Settings, ChevronLeft, ChevronRight, LogOut, Loader2, X,
-  HelpCircle, Database, CalendarDays, ClipboardCheck
+  HelpCircle, Database, CalendarDays, ClipboardCheck, Key
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,7 @@ const mainNavItems = [
 const adminNavItems = [
   { href: '/dashboard/admin', icon: Database, label: 'RAG Admin' },
   { href: '/dashboard/legislation', icon: FileText, label: 'Legislation' },
+  { href: '/dashboard/integrations', icon: Key, label: 'API Keys' },
 ]
 
 export function Sidebar({ collapsed, onToggle, mobileOpen, isMobile }: SidebarProps) {
