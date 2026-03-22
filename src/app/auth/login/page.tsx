@@ -15,8 +15,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
-  
+
   const router = useRouter()
+
+  // DEV MODE: bypass login
+  React.useEffect(() => {
+    router.replace('/dashboard')
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

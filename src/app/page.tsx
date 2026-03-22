@@ -49,10 +49,10 @@ export default function LandingPage() {
             <a href="#pricing" className="text-slate-600 hover:text-kwooka-ochre transition-colors">Pricing</a>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/auth/login" className="text-sm font-medium text-slate-600 hover:text-kwooka-ochre transition-colors hidden sm:block">
+            <Link href="/dashboard" className="text-sm font-medium text-slate-600 hover:text-kwooka-ochre transition-colors hidden sm:block">
               Log in
             </Link>
-            <Link href="/auth/signup" className="text-sm font-medium bg-kwooka-ochre text-white px-4 py-2 rounded-lg hover:bg-kwooka-ochre/90 transition-colors">
+            <Link href="/dashboard" className="text-sm font-medium bg-kwooka-ochre text-white px-4 py-2 rounded-lg hover:bg-kwooka-ochre/90 transition-colors">
               Start Free
             </Link>
           </div>
@@ -88,7 +88,7 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-16">
-            <Link href="/auth/signup" className="inline-flex items-center justify-center gap-2 bg-kwooka-ochre text-white font-semibold px-7 py-3.5 rounded-xl hover:bg-kwooka-ochre/90 transition-all hover:shadow-lg hover:shadow-kwooka-ochre/20 text-base">
+            <Link href="/dashboard" className="inline-flex items-center justify-center gap-2 bg-kwooka-ochre text-white font-semibold px-7 py-3.5 rounded-xl hover:bg-kwooka-ochre/90 transition-all hover:shadow-lg hover:shadow-kwooka-ochre/20 text-base">
               Start Your First Analysis <ArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/demo" className="inline-flex items-center justify-center gap-2 bg-slate-100 text-slate-700 font-medium px-7 py-3.5 rounded-xl hover:bg-slate-200 transition-all text-base">
@@ -297,7 +297,7 @@ export default function LandingPage() {
                     </div>
                   ))}
                 </div>
-                <Link href="/auth/signup" className={`block text-center text-sm font-semibold py-2.5 rounded-lg transition-all ${plan.ctaStyle}`}>
+                <Link href="/dashboard" className={`block text-center text-sm font-semibold py-2.5 rounded-lg transition-all ${plan.ctaStyle}`}>
                   {plan.cta}
                 </Link>
               </div>
@@ -315,7 +315,7 @@ export default function LandingPage() {
           <p className="text-lg text-slate-500 mb-8">
             Find out where you stand in two minutes. No credit card required.
           </p>
-          <Link href="/auth/signup" className="inline-flex items-center gap-2 bg-kwooka-ochre text-white font-semibold px-8 py-4 rounded-xl hover:bg-kwooka-ochre/90 transition-all hover:shadow-lg hover:shadow-kwooka-ochre/20 text-base">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 bg-kwooka-ochre text-white font-semibold px-8 py-4 rounded-xl hover:bg-kwooka-ochre/90 transition-all hover:shadow-lg hover:shadow-kwooka-ochre/20 text-base">
             Start Your First Analysis <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
