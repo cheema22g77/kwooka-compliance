@@ -4,18 +4,33 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+// DEV MODE: bypass auth for development/testing
+const DEV_BYPASS_AUTH = true
+
+const MOCK_USER = {
+  id: 'dev-user-001',
+  email: 'dev@kwooka.com',
+  user_metadata: { full_name: 'Dev User' },
+  app_metadata: {},
+  aud: 'authenticated',
+  role: 'authenticated',
+  created_at: new Date().toISOString(),
+}
+
 export function useAuth(requireAuth: boolean = true) {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(DEV_BYPASS_AUTH ? MOCK_USER : null)
+  const [loading, setLoading] = useState(DEV_BYPASS_AUTH ? false : true)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
+    if (DEV_BYPASS_AUTH) return
+
     const checkAuth = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         setUser(user)
-        
+
         if (requireAuth && !user) {
           router.push('/auth/login')
         }
@@ -34,7 +49,7 @@ export function useAuth(requireAuth: boolean = true) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
-      
+
       if (event === 'SIGNED_OUT' && requireAuth) {
         router.push('/auth/login')
       }
@@ -44,6 +59,7 @@ export function useAuth(requireAuth: boolean = true) {
   }, [requireAuth, router])
 
   const resetPassword = async (email: string) => {
+    if (DEV_BYPASS_AUTH) return { error: null }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/update-password`,
     })
@@ -51,6 +67,7 @@ export function useAuth(requireAuth: boolean = true) {
   }
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    if (DEV_BYPASS_AUTH) return { error: null }
     const { error } = await supabase.auth.signUp({
       email,
       password,
