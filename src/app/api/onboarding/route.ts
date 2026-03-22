@@ -7,10 +7,12 @@ import {
   BusinessProfile 
 } from '@/lib/ai/onboarding-agent'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 // GET - Return onboarding questions
 export async function GET() {
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
     if (userId) {
       try {
         // Update user profile
-        await supabase
+        await getSupabase()
           .from('profiles')
           .update({
             business_name: profile.businessName,
@@ -97,6 +99,7 @@ async function createInitialSetup(userId: string, profile: BusinessProfile) {
     due_date: new Date(Date.now() + (index + 1) * 7 * 24 * 60 * 60 * 1000).toISOString() // Stagger by weeks
   }))
 
+  const supabase = getSupabase()
   await supabase.from('compliance_tasks').insert(checklistItems).select()
 
   // Create sector settings

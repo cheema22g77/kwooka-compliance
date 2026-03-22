@@ -241,4 +241,17 @@ export class LegislationMonitor {
   }
 }
 
-export const legislationMonitor = new LegislationMonitor()
+let _legislationMonitor: LegislationMonitor | null = null
+export function getLegislationMonitor(): LegislationMonitor {
+  if (!_legislationMonitor) {
+    _legislationMonitor = new LegislationMonitor()
+  }
+  return _legislationMonitor
+}
+
+// Keep backward-compatible export as a getter
+export const legislationMonitor = new Proxy({} as LegislationMonitor, {
+  get(_, prop) {
+    return (getLegislationMonitor() as any)[prop]
+  }
+})
