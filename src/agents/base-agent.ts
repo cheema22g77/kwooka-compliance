@@ -8,6 +8,8 @@ import type { ILLMPort, LLMMessage, LLMResponse } from "@/ports/outbound";
 import type { OrgId } from "@/core/value-objects";
 import type { AnyDomainEvent } from "@/events/types";
 import type { EventBus } from "@/events/bus";
+import type { IAgentMemory, AgentMemoryEntry } from "@/memory/agent-memory";
+import { formatMemoryContext } from "@/memory/agent-memory";
 
 export interface GuardrailResult {
   passed: boolean;
@@ -59,6 +61,7 @@ export abstract class BaseAgent<TInput extends AgentInput = AgentInput, TOutput 
     protected readonly guardrails: (raw: string, context: Record<string, unknown>) => Promise<GuardrailResult>,
     protected readonly reflect: ((raw: string, context: Record<string, unknown>) => Promise<ReflectionResult>) | null = null,
     protected readonly eventBus: EventBus | null = null,
+    protected readonly memory: IAgentMemory | null = null,
   ) {
     this.config = {
       maxTokens: 4096,
@@ -70,10 +73,27 @@ export abstract class BaseAgent<TInput extends AgentInput = AgentInput, TOutput 
   }
 
   /** Subclasses implement: build the LLM messages from input */
-  protected abstract buildMessages(input: TInput): LLMMessage[];
+  protected abstract buildMessages(input: TInput, pastRuns?: AgentMemoryEntry[]): LLMMessage[];
 
   /** Subclasses implement: parse LLM response into typed output */
   protected abstract parseOutput(raw: string, input: TInput): TOutput;
+
+  /** Subclasses may override: summarise input for memory storage */
+  protected summariseInput(input: TInput): string {
+    const data = { ...input.data };
+    // Truncate long fields for storage
+    for (const key of Object.keys(data)) {
+      if (typeof data[key] === "string" && (data[key] as string).length > 200) {
+        data[key] = (data[key] as string).slice(0, 200) + "…";
+      }
+    }
+    return JSON.stringify(data);
+  }
+
+  /** Subclasses may override: summarise output for memory storage */
+  protected summariseOutput(raw: string): string {
+    return raw.length > 500 ? raw.slice(0, 500) + "…" : raw;
+  }
 
   /** Main execution — orchestrates LLM call → guardrails → reflection → audit */
   async run(input: TInput): Promise<AgentOutput<TOutput>> {
@@ -81,7 +101,32 @@ export abstract class BaseAgent<TInput extends AgentInput = AgentInput, TOutput 
     const agentRunId = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     try {
-      const messages = this.buildMessages(input);
+      // Recall past high-scoring runs for context (non-fatal)
+      let pastRuns: AgentMemoryEntry[] = [];
+      if (this.memory) {
+        try {
+          pastRuns = await this.memory.recall({
+            agentName: this.config.name,
+            orgId: input.orgId,
+            limit: 3,
+          });
+        } catch (_err) {
+          // Memory recall failure is non-fatal
+        }
+      }
+
+      const messages = this.buildMessages(input, pastRuns);
+
+      // Inject memory context into messages if we have past runs
+      if (pastRuns.length > 0) {
+        const memoryContext = formatMemoryContext(pastRuns);
+        // Prepend memory context as a system message after the first message
+        const insertIdx = messages[0]?.role === "system" ? 1 : 0;
+        messages.splice(insertIdx, 0, {
+          role: "user" as const,
+          content: memoryContext,
+        });
+      }
 
       // LLM call (with retry)
       let llmResponse: LLMResponse | null = null;
@@ -181,6 +226,9 @@ export abstract class BaseAgent<TInput extends AgentInput = AgentInput, TOutput 
             const totalTokens = tokensUsed + retryResponse.tokensUsed.input + retryResponse.tokensUsed.output;
             await this.emitAgentRunEvent(agentRunId, input.orgId, true, totalTokens, Date.now() - startTime, reflectionScore);
 
+            // Store revised output to memory
+            await this.storeToMemory(agentRunId, input, retryResponse.content, reflectionScore);
+
             return {
               agentRunId,
               agentName: this.config.name,
@@ -202,6 +250,9 @@ export abstract class BaseAgent<TInput extends AgentInput = AgentInput, TOutput 
       // Emit completion event
       await this.emitAgentRunEvent(agentRunId, input.orgId, true, tokensUsed, Date.now() - startTime, reflectionScore);
 
+      // Store to memory (non-fatal)
+      await this.storeToMemory(agentRunId, input, raw, reflectionScore);
+
       return {
         agentRunId,
         agentName: this.config.name,
@@ -217,6 +268,27 @@ export abstract class BaseAgent<TInput extends AgentInput = AgentInput, TOutput 
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       return this.failureOutput(agentRunId, startTime, 0, error);
+    }
+  }
+
+  private async storeToMemory(
+    agentRunId: string,
+    input: TInput,
+    raw: string,
+    reflectionScore: number | null,
+  ): Promise<void> {
+    if (!this.memory || reflectionScore === null) return;
+    try {
+      await this.memory.store({
+        agentRunId,
+        agentName: this.config.name,
+        orgId: input.orgId,
+        inputSummary: this.summariseInput(input),
+        outputSummary: this.summariseOutput(raw),
+        reflectionScore,
+      });
+    } catch (_err) {
+      // Memory storage failure is non-fatal
     }
   }
 
